@@ -5,5 +5,4 @@ services:
     working_dir: /package
     volumes:
       - ./app/:/app/
-      - ./ble/:/ble/
       - ./package/:/package/
