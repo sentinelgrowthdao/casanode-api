@@ -46,15 +46,6 @@ webRouter.get('/', async (req: Request, res: Response) =>
 		authToken: config.API_AUTH,
 	};
 	
-	// If bluetooth is available and enabled
-	if (config.BLE_ENABLED !== 'false')
-	{
-		qrData.bluetooth = {
-			uuid: config.BLE_UUID,
-			discovery: config.BLE_DISCOVERY_UUID,
-			seed: config.BLE_CHARACTERISTIC_SEED,
-		};
-	}
 	
 	// Generate QR code data URL
 	const qrCodeDataURL = await QRCode.toDataURL(JSON.stringify(qrData));
@@ -81,19 +72,14 @@ webRouter.get('/', async (req: Request, res: Response) =>
 });
 
 interface QRData {
-	device: string;
-	os: string;
-	kernel: string;
-	architecture: string;
-	ip: string | null;
-	webPort: string | number;
-	apiPort: string | number;
-	authToken: string;
-	bluetooth?: {
-		uuid: string;
-		discovery: string;
-		seed: string;
-	};
+    device: string;
+    os: string;
+    kernel: string;
+    architecture: string;
+    ip: string | null;
+    webPort: string | number;
+    apiPort: string | number;
+    authToken: string;
 }
 
 export default webRouter;
