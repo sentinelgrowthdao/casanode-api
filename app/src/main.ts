@@ -30,8 +30,8 @@ process.on('SIGINT', () =>
 
 // Create a new program and set program information
 const program = new Command();
-program.name('casanode-ble')
-	.description('CLI for managing Bluetooth communication with the mobile application and handling Casanode node operations')
+program.name('casanode')
+	.description('CLI for managing Casanode node operations via REST APIs')
 	.version('1.0.0');
 
 // Display help information
