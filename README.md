@@ -1,6 +1,6 @@
-# Casanode BLE
+# Casanode
 
-Application for Bluetooth communication between phone and casanode node.
+Lightweight service exposing a REST API and a small web page (QR code) to manage a Casanode dVPN node.
 
 ## Installation
 
@@ -215,47 +215,6 @@ Remove Wallet
 
 ```bash
 curl -X DELETE -H "Authorization: Bearer <token>" -k https://192.168.x.x:8081/api/v1/wallet/remove
-```
-## Bluetooth Communication
-
-### Requirements
-
-Install the required packages:
-
-```bash
-sudo apt update
-sudo apt install -y \
-	python3-dotenv \
-	python3-dbus \
-	python3-psutil \
-	python3-pip \
-	python3-venv \
-	python3-gi \
-	python3-gi-cairo \
-	libcairo2-dev \
-	libgirepository1.0-dev \
-	libdbus-1-dev \
-	libbluetooth-dev \
-	bluez
-```
-
-### Enable Bluetooth Experimental Mode
-
-Edit the Bluetooth service to enable experimental features:
-
-```bash
-sudo sed -i 's|ExecStart=/usr/libexec/bluetooth/bluetoothd|ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental|' /lib/systemd/system/bluetooth.service
-sudo systemctl daemon-reload
-sudo systemctl restart bluetooth
-```
-
-### User Permissions
-
-Add your user to the `bluetooth` group and to the `sudoers` group if needed:
-
-```bash
-sudo usermod -aG bluetooth $USER
-sudo usermod -aG sudo $USER
 ```
 
 Log out and log back in for group changes to take effect.
