@@ -1,4 +1,3 @@
-import { execSync } from 'child_process';
 import { Request, Response } from 'express';
 import { Logger } from '@utils/logger';
 import { refreshNetworkConfiguration } from '@utils/configuration';
@@ -149,17 +148,6 @@ export async function systemReset(req: Request, res: Response): Promise<void>
 		// Shutdown the application (Restart performed by systemd) in 1 second
 		setTimeout(() =>
 		{
-			try
-			{
-				// Kill the BLE process so systemd can restart it
-				execSync('pkill -f \'python3.*ble/main\\.py\'');
-				Logger.info('BLE process killed successfully');
-			}
-			catch (err: any)
-			{
-				Logger.error(`Failed to kill BLE process: ${err}`);
-			}
-			
 			process.exit(0);
 		}, 1000);
 		
