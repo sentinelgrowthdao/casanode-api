@@ -8,23 +8,20 @@ import { Logger } from '@utils/logger';
 
 export interface AppConfigData
 {
-	[key: string]: string | number | boolean | string[] | undefined;
-	BLENO_DEVICE_NAME: string;
-	CASANODE_VERSION: string;
-	DOCKER_IMAGE_NAME: string;
-	DOCKER_CONTAINER_NAME: string;
-	CONFIG_DIR: string;
-	LOG_DIR: string;
-	CERTS_DIR: string;
-	DOCKER_SOCKET: string;
-	BLE_UUID: string;
-	BLE_DISCOVERY_UUID: string;
-	BLE_CHARACTERISTIC_SEED: string;
-	WEB_LISTEN: string;
-	API_LISTEN: string;
-	API_AUTH: string;
-	API_BALANCE: string[];
-	FOXINODES_API_CHECK_IP: string;
+    [key: string]: string | number | boolean | string[] | undefined;
+    CASANODE_VERSION: string;
+    DOCKER_IMAGE_NAME: string;
+    DOCKER_CONTAINER_NAME: string;
+    CONFIG_DIR: string;
+    LOG_DIR: string;
+    CERTS_DIR: string;
+    DOCKER_SOCKET: string;
+    DEVICE_ID: string;
+    WEB_LISTEN: string;
+    API_LISTEN: string;
+    API_AUTH: string;
+    API_BALANCE: string[];
+    FOXINODES_API_CHECK_IP: string;
 	FOXINODES_API_DVPN_CONFIG: string;
 	FOXINODES_API_CHECK_PORT: string;
 	SENTRY_DSN?: string;
@@ -50,7 +47,6 @@ class ConfigurationLoader
 	// Default configuration
 	private defaultConfig: AppConfigData =
 		{
-			BLENO_DEVICE_NAME: 'Casanode',
 			CASANODE_VERSION: 'alpha',
 			DOCKER_IMAGE_NAME: 'wajatmaka/sentinel-aarch64-alpine:v0.7.1',
 			DOCKER_CONTAINER_NAME: 'sentinel-dvpn-node',
@@ -58,10 +54,7 @@ class ConfigurationLoader
 			LOG_DIR: '/var/log/casanode',
 			CERTS_DIR: '/opt/casanode/app/certs',
 			DOCKER_SOCKET: this.getDockerDefaultSocketPath(),
-			BLE_ENABLED: true,
-			BLE_UUID: '00001820-0000-1000-8000-00805f9b34fb',
-			BLE_DISCOVERY_UUID: '0000a2d4-0000-1000-8000-00805f9b34fb',
-			BLE_CHARACTERISTIC_SEED: uuidv4(),
+			DEVICE_ID: uuidv4(),
 			WEB_LISTEN: '0.0.0.0:8080',
 			API_LISTEN: '0.0.0.0:8081',
 			API_AUTH: this.generateAuthToken(),
