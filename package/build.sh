@@ -5,7 +5,6 @@ set -e
 DEB_DIR="/package/deb"					# Files intended for the .deb
 DIST_DIR="/package/dist"				# Where the generated .deb will be placed
 APP_DIR="/app/"							# Node.js sources in TypeScript
-BLE_DIR="/ble/"							# BLE sources in Python
 TARGET_APP_DIR="$DEB_DIR/opt/casanode"	# Destination of the compiled application in the .deb
 
 echo "=== Cleaning previous compiled application files in $TARGET_APP_DIR ==="
@@ -24,14 +23,6 @@ mkdir -p "$TARGET_APP_DIR/app"
 cp -r "$APP_DIR/dist/"* "$TARGET_APP_DIR/app/"
 cp -r "$APP_DIR/web/" "$TARGET_APP_DIR/web/"
 
-echo "=== Copying ble files from $BLE_DIR to $TARGET_APP_DIR ==="
-cp -r "$BLE_DIR" "$TARGET_APP_DIR/ble/"
-echo "=== Removing Python temporary and cache files from $TARGET_APP_DIR/ble ==="
-# Delete compiled bytecode
-find "$TARGET_APP_DIR/ble/" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete
-# Remove __pycache__ directories
-find "$TARGET_APP_DIR/ble/" -type d -name '__pycache__' -exec rm -rf {} +
-
 echo "=== Copying package.json and package-lock.json ==="
 cp "$APP_DIR/package.json" "$TARGET_APP_DIR/app/"
 cp "$APP_DIR/package-lock.json" "$TARGET_APP_DIR/app/"
@@ -48,7 +39,6 @@ chmod 755 "$DEB_DIR/DEBIAN/prerm"
 chmod 755 "$DEB_DIR/DEBIAN/postrm"
 # For example, the systemd file and config must be read-only
 chmod 644 "$DEB_DIR/etc/systemd/system/casanode.service"
-chmod 644 "$DEB_DIR/etc/systemd/system/casanode-ble.service"
 chmod 644 "$DEB_DIR/etc/systemd/system/casanode-startup.service"
 chmod 644 "$DEB_DIR/etc/casanode.conf"
 chmod 644 "$DEB_DIR/etc/logrotate.d/casanode"

@@ -9,21 +9,8 @@ Version: 0.1.0
 Architecture: all
 Depends: nodejs,
      docker-ce | docker.io,
-     sudo,
-     python3-dotenv,
-     python3-dbus,
-     python3-psutil,
-     python3-pip,
-     python3-venv,
-     python3-gi,
-     python3-gi-cairo,
-     libcairo2-dev,
-     libgirepository1.0-dev,
-     libdbus-1-dev,
-     libbluetooth-dev,
-     bluez
-Description: Casanode - dVPN node management via Bluetooth and TCP API
-  Casanode is a lightweight service for managing decentralized VPN (dVPN) nodes. 
-  It enables secure communication via Bluetooth Low Energy (BLE) and a RESTful 
-  TCP API, allowing monitoring, configuration, and lifecycle control. The service 
-  includes Docker support and SSL authentication for secure node operations.
+     sudo
+Description: Casanode - dVPN node management via REST API
+  Casanode is a lightweight service for managing decentralized VPN (dVPN) nodes.
+  It exposes a secure REST API and a simple web page for QR-code based setup,
+  enabling monitoring, configuration, and lifecycle control with Docker support.

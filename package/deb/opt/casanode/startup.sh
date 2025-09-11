@@ -11,36 +11,6 @@ FLAGFILE="/opt/$USER/.docker_rootless_installed"
 > "$LOGFILE"
 echo "=== Casanode startup begin ===" | tee -a "$LOGFILE"
 
-# Stop bluetoothd to release lock files
-echo "Stopping bluetooth service…" | tee -a "$LOGFILE"
-systemctl stop bluetooth.service
-
-# Clean up stale BlueZ GATT database to avoid registration errors
-if [ -d /var/lib/bluetooth ]
-then
-	echo "Cleaning up BlueZ GATT database…" | tee -a "$LOGFILE"
-	for adapter in /var/lib/bluetooth/*
-	do
-		gatt_dir="$adapter/gatt"
-		cache_dir="$adapter/cache"
-		
-		if [ -d "$gatt_dir" ]
-		then
-			rm -rf "$gatt_dir" \
-			&& echo "Removed $gatt_dir" | tee -a "$LOGFILE"
-		fi
-
-		if [ -d "$cache_dir" ]
-		then
-			rm -rf "$cache_dir" \
-			&& echo "Removed $cache_dir" | tee -a "$LOGFILE"
-		fi
-	done
-fi
-
-# Restart bluetoothd so it can recreate its database cleanly
-echo "Restarting bluetooth service…" | tee -a "$LOGFILE"
-systemctl start bluetooth.service
 
 # Start the systemd-user instance for casanode
 echo "Launching user@$UID_USER.service…" | tee -a "$LOGFILE"
@@ -124,16 +94,6 @@ else
 		| tee -a "$LOGFILE"
 fi
 
-# Check and apply necessary capabilities to node if needed
-NODE_PATH=$(eval readlink -f "$(which node)")
-if ! getcap "$NODE_PATH" | grep -q "cap_net_raw+eip"
-then
-	echo "Applying necessary capabilities to node..." | tee -a "$LOGFILE"
-	setcap cap_net_raw+eip "$NODE_PATH" | tee -a "$LOGFILE"
-	echo "Capabilities applied." | tee -a "$LOGFILE"
-else
-	echo "Necessary capabilities for node are already applied." | tee -a "$LOGFILE"
-fi
 
 # Configure UFW rules if not already configured
 UFW_STATUS=$(ufw status | grep -i "Status: active")
@@ -164,15 +124,6 @@ else
 	echo "UFW is already active." | tee -a "$LOGFILE"
 fi
 
-# Unblock Bluetooth if necessary
-if rfkill list bluetooth | grep -q "Soft blocked: yes"; then
-	echo "  → Bluetooth is soft-blocked, unblocking…" | tee -a "$LOGFILE"
-	rfkill unblock bluetooth \
-		&& echo "    ✓ Bluetooth unblocked" | tee -a "$LOGFILE" \
-		|| echo "    ✗ Failed to unblock Bluetooth" | tee -a "$LOGFILE"
-else
-	echo "  → Bluetooth is not soft-blocked, no need to unblock" | tee -a "$LOGFILE"
-fi
 
 echo "=== Casanode startup finished ===" | tee -a "$LOGFILE"
 exit 0

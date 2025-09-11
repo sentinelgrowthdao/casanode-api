@@ -24,16 +24,6 @@ chown casanode:casanode /etc/casanode.conf
 chmod +x /opt/casanode/startup.sh
 chmod +x /opt/casanode/updater.sh
 
-if ! grep -q -- '--experimental' /lib/systemd/system/bluetooth.service; then
-	sed -i 's|ExecStart=/usr/libexec/bluetooth/bluetoothd|ExecStart=/usr/libexec/bluetooth/bluetoothd --experimental|' /lib/systemd/system/bluetooth.service
-	systemctl daemon-reload
-	systemctl restart bluetooth
-fi
-
-if ! id -nG casanode | grep -qw bluetooth; then
-	usermod -aG bluetooth casanode
-fi
-
 echo "Setting correct permissions for /var/log/casanode..."
 mkdir -p /var/log/casanode
 chown -R casanode:casanode /var/log/casanode
@@ -44,7 +34,6 @@ npm install --prefix /opt/casanode/app --production || { echo "Error: Failed to 
 
 echo "Enabling systemd services..."
 systemctl enable casanode.service
-systemctl enable casanode-ble.service
 systemctl enable casanode-startup.service
 systemctl daemon-reload
 
