@@ -48,7 +48,7 @@ export const captureException = (error: any) =>
 		// Identify the unique session
 		scope.setTag('session_id', sessionId);
 		// Add device identifier
-		scope.setTag('device', config.BLE_CHARACTERISTIC_SEED || 'unknown_device');
+		scope.setTag('device', (config.DEVICE_ID as string) || 'unknown_device');
 		// Capture the exception
 		Sentry.captureException(error);
 	});
@@ -71,7 +71,7 @@ export const captureMessage = (message: string, level: Sentry.SeverityLevel = 'i
 		// Identify the unique session
 		scope.setTag('session_id', sessionId);
 		// Add device identifier
-		scope.setTag('device', config.BLE_CHARACTERISTIC_SEED || 'unknown_device');
+		scope.setTag('device', (config.DEVICE_ID as string) || 'unknown_device');
 		// Capture the message with the specified level
 		if (level === 'error')
 		{
