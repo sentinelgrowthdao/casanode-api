@@ -102,24 +102,21 @@ then
 	# Load configuration file
 	if [ -f "$CONFIGFILE" ]; then
 		. "$CONFIGFILE"
-	else
-		echo "Configuration file $CONFIGFILE not found. Using default values." | tee -a "$LOGFILE"
-		WEB_LISTEN="0.0.0.0:8080"
-		API_LISTEN="0.0.0.0:8081"
-	fi
-	
-	# Extract ports from configuration
-	WEB_PORT=$(echo "$WEB_LISTEN" | cut -d':' -f2)
-	API_PORT=$(echo "$API_LISTEN" | cut -d':' -f2)
-	
-	echo "Configuring UFW rules..." | tee -a "$LOGFILE"
-	ufw default deny incoming | tee -a "$LOGFILE"
-	ufw default allow outgoing | tee -a "$LOGFILE"
-	ufw allow ssh | tee -a "$LOGFILE"
-	ufw allow "$WEB_PORT" | tee -a "$LOGFILE"
-	ufw allow "$API_PORT" | tee -a "$LOGFILE"
-	ufw --force enable | tee -a "$LOGFILE"
-	echo "UFW rules configured." | tee -a "$LOGFILE"
+    else
+        echo "Configuration file $CONFIGFILE not found. Using default values." | tee -a "$LOGFILE"
+        API_LISTEN="0.0.0.0:14045"
+    fi
+
+    # Extract port from configuration
+    API_PORT=$(echo "$API_LISTEN" | cut -d':' -f2)
+
+    echo "Configuring UFW rules..." | tee -a "$LOGFILE"
+    ufw default deny incoming | tee -a "$LOGFILE"
+    ufw default allow outgoing | tee -a "$LOGFILE"
+    ufw allow ssh | tee -a "$LOGFILE"
+    ufw allow "$API_PORT" | tee -a "$LOGFILE"
+    ufw --force enable | tee -a "$LOGFILE"
+    echo "UFW rules configured." | tee -a "$LOGFILE"
 else
 	echo "UFW is already active." | tee -a "$LOGFILE"
 fi
