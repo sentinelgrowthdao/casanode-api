@@ -1,5 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import jwt from 'jsonwebtoken';
 import config from '@utils/configuration';
+import { Logger } from '@utils/logger';
 
 /**
  * Middleware for Bearer token authentication
@@ -12,21 +14,23 @@ export function authenticateToken(req: Request, res: Response, next: NextFunctio
 {
 	const authHeader = req.headers['authorization'];
 	const token = authHeader && authHeader.split(' ')[1];
-	
-	// Check if token is provided
-	if (token == null)
+
+	if (!token)
 	{
-		res.status(401).json({ error: 'Token is required' });
+		res.status(401).json({ error: 'Authorization token required' });
 		return;
 	}
-	
-	// Check against the token in the configuration
-	if (token !== config.API_AUTH)
+
+	try
 	{
-		res.status(403).json({ error: 'Invalid token' });
-		return;
+		const decoded = jwt.verify(token, config.JWT_SECRET as string);
+		// Attach decoded token if needed by handlers
+		(req as any).jwt = decoded;
+		next();
 	}
-	
-	// Valid token
-	next();
+	catch (_err)
+	{
+		Logger.error('Invalid or expired JWT token. ' + _err);
+		res.status(403).json({ error: 'Invalid or expired token' });
+	}
 }
