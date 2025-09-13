@@ -1,36 +1,19 @@
 import express from 'express';
-import https from 'https';
 import http from 'http';
 import cors from 'cors';
-import fs from 'fs';
-import path from 'path';
 import { Logger } from '@utils/logger';
 import config from '@utils/configuration';
 import apiRouter from '@web/apiRoutes';
-import webRouter from '@web/webRoutes';
-import { redirectToHTTPS } from '@web/redirectMiddleware';
-import { certificateGenerate } from '@utils/certificate';
 
 class WebServer
 {
 	private static instance: WebServer;
 	private app = express();
-	private webHostname = '0.0.0.0';
 	private apiHostname = '0.0.0.0';
-	private webPort = 8080;
 	private apiPort = 8081;
-	private certFilePath: string = path.join(config.CONFIG_DIR, 'web.crt');
-	private keyFilePath: string = path.join(config.CONFIG_DIR, 'web.key');
 	
 	private constructor()
 	{
-		// If the WEB_LISTEN configuration is set
-		if (config.WEB_LISTEN && config.WEB_LISTEN.includes(':'))
-		{
-			// Set the port and hostname from the configuration
-			this.webHostname = config.WEB_LISTEN.split(':')[0] || '0.0.0.0';
-			this.webPort = parseInt(config.WEB_LISTEN.split(':')[1]) || 8080;
-		}
 		// If the API_LISTEN configuration is set
 		if (config.API_LISTEN && config.API_LISTEN.includes(':'))
 		{
@@ -54,40 +37,12 @@ class WebServer
 	}
 	
 	/**
-	 * Initialize the web server, generating SSL certificates if needed
-	 * and setting up routes.
-	 */
+     * Initialize the API server and routes
+     */
 	public async init(): Promise<void>
 	{
-		// Generate the certificate if needed
-		await this.setupSSL();
 		// Setup routes
 		this.setupRoutes();
-	}
-	
-	/**
-	 * Generate SSL certificates if they don't exist
-	 */
-	private async setupSSL()
-	{
-		try
-		{
-			// Paths for the CA certificate and key
-			const caCertPath = path.join(config.CERTS_DIR, 'ca.crt');
-			const caKeyPath = path.join(config.CERTS_DIR, 'ca.key');
-			
-			// Generate certificate if it does not exist
-			const success = await certificateGenerate(5, this.certFilePath, this.keyFilePath, caCertPath, caKeyPath);
-			if (success)
-				Logger.info('SSL certificate for API server generated successfully.');
-			else
-				Logger.info('SSL certificate for API server already exists.');
-		}
-		catch (error)
-		{
-			Logger.error(`Failed to generate SSL certificate for API server: ${error}`);
-			process.exit(1);
-		}
 	}
 	
 	/**
@@ -104,44 +59,23 @@ class WebServer
 			credentials: false,
 		}));
 		
-		// Use the redirect middleware for API requests
-		this.app.use(redirectToHTTPS);
-		
 		// Add the JSON parsing middleware
 		this.app.use(express.json());
 		
-		// Add the web routes (available on both HTTP and HTTPS)
-		this.app.use('/', webRouter);
-		
-		// Add the API routes (HTTPS only)
+		// Add the API routes
 		this.app.use('/api/v1', apiRouter);
 	}
 	
 	/**
-	 * Start the web server with both HTTP (for / on webPort)
-	 * and HTTPS (for / and API on apiPort)
+	 * Start the API server (HTTP only)
 	 * @returns void
 	 */
 	public start()
 	{
-		// Start the HTTP server (for the main route / on webPort)
 		http.createServer(this.app)
-			.listen(this.webPort, this.webHostname, () =>
-			{
-				Logger.info(`Web server running at http://${this.webHostname}:${this.webPort}`);
-			});
-		
-		// SSL options for the HTTPS server
-		const sslOptions = {
-			key: fs.readFileSync(this.keyFilePath),
-			cert: fs.readFileSync(this.certFilePath)
-		};
-		
-		// Start the HTTPS server (for API and / on apiPort)
-		https.createServer(sslOptions, this.app)
 			.listen(this.apiPort, this.apiHostname, () =>
 			{
-				Logger.info(`API server running securely at https://${this.apiHostname}:${this.apiPort}`);
+				Logger.info(`API server running at http://${this.apiHostname}:${this.apiPort}`);
 			});
 	}
 }
