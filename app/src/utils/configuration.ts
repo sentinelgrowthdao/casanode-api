@@ -14,12 +14,11 @@ export interface AppConfigData
     DOCKER_CONTAINER_NAME: string;
     CONFIG_DIR: string;
     LOG_DIR: string;
-    CERTS_DIR: string;
     DOCKER_SOCKET: string;
     DEVICE_ID: string;
-    WEB_LISTEN: string;
     API_LISTEN: string;
     API_AUTH: string;
+    JWT_SECRET: string;
     API_BALANCE: string[];
     FOXINODES_API_CHECK_IP: string;
 	FOXINODES_API_DVPN_CONFIG: string;
@@ -52,12 +51,11 @@ class ConfigurationLoader
 			DOCKER_CONTAINER_NAME: 'sentinel-dvpn-node',
 			CONFIG_DIR: process.env.HOME ? path.join(process.env.HOME, '.sentinelnode') : '/opt/casanode/.sentinelnode',
 			LOG_DIR: '/var/log/casanode',
-			CERTS_DIR: '/opt/casanode/app/certs',
 			DOCKER_SOCKET: this.getDockerDefaultSocketPath(),
 			DEVICE_ID: uuidv4(),
-			WEB_LISTEN: '0.0.0.0:8080',
-			API_LISTEN: '0.0.0.0:8081',
+			API_LISTEN: '0.0.0.0:14045',
 			API_AUTH: this.generateAuthToken(),
+			JWT_SECRET: this.generateJwtSecret(),
 			API_BALANCE: [
 				'https://api-sentinel.busurnode.com/cosmos/bank/v1beta1/balances/',
 				'https://api.sentinel.quokkastake.io/cosmos/bank/v1beta1/balances/',
@@ -350,6 +348,15 @@ class ConfigurationLoader
 	 * @returns string
 	 */
 	private generateAuthToken(): string
+	{
+		return uuidv4();
+	}
+
+	/**
+     * Generate a JWT secret
+     * @returns string
+     */
+	private generateJwtSecret(): string
 	{
 		return uuidv4();
 	}
