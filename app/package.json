@@ -3,8 +3,7 @@
   "version": "1.0.0-alpha6.7",
   "type": "module",
   "scripts": {
-    "build": "tsc && tsc-alias && npm run copy-certs",
-    "copy-certs": "cp -r ./src/certs/ ./dist/certs/",
+    "build": "tsc && tsc-alias",
     "eslint": "npx eslint .",
     "start": "node ./dist/main.js",
     "dev": "npx tsx src/main.ts"
