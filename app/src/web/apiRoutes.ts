@@ -34,10 +34,16 @@ import {
 	walletRestore,
 	walletRemove,
 } from '@api/wallet';
+import { login, refresh } from '@api/auth';
 import { authenticateToken } from './authMiddleware';
 
 // Create a new router
 const apiRouter = Router();
+
+// POST /api/v1/auth/login (no JWT required)
+apiRouter.post('/auth/login', login);
+// POST /api/v1/auth/refresh (JWT required)
+apiRouter.post('/auth/refresh', authenticateToken, refresh);
 
 // GET /api/v1/status
 apiRouter.get('/status', authenticateToken, getStatus);
