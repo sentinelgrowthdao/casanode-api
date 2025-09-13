@@ -9,8 +9,7 @@ Version: 0.1.0
 Architecture: all
 Depends: nodejs,
      docker-ce | docker.io,
-     sudo
+     nginx
 Description: Casanode - dVPN node management via REST API
   Casanode is a lightweight service for managing decentralized VPN (dVPN) nodes.
-  It exposes a secure REST API and a simple web page for QR-code based setup,
-  enabling monitoring, configuration, and lifecycle control with Docker support.
+  It exposes a REST API (JWT-authenticated) for monitoring, configuration, and lifecycle control with Docker support.
