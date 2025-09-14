@@ -468,8 +468,12 @@ export async function nodeBalance(req: Request, res: Response): Promise<void>
 		// Check if the public address is empty
 		if (publicAddress === '')
 		{
-			Logger.error('Public address is missing');
-			throw new Error('Public address is missing');
+			// No wallet configured yet — return 0 balance gracefully
+			Logger.info('No public address configured; returning 0 DVPN balance');
+			res.json({
+				balance: '0 DVPN'
+			});
+			return;
 		}
 		
 		// Retrieve the wallet balance
