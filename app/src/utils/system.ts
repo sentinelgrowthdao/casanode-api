@@ -139,8 +139,8 @@ export async function resetSystem(): Promise<void>
 				if (!walletRemoveResult)
 				{
 					Logger.error('Failed to remove the wallet.');
-					reject('Failed to remove the wallet.');
-					return;
+					// reject('Failed to remove the wallet.');
+					// return;
 				}
 			}
 			
@@ -150,8 +150,8 @@ export async function resetSystem(): Promise<void>
 			if (!removeImagesResult)
 			{
 				Logger.error('Failed to remove all Docker images.');
-				reject('Failed to remove all Docker images.');
-				return;
+				// reject('Failed to remove all Docker images.');
+				// return;
 			}
 			
 			// Determine user's home directory
