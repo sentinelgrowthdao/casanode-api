@@ -57,8 +57,18 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 	{
 		// Indicate if vpnType was changed
 		let vpnTypeChanged = false;
+		const updates: {
+			moniker?: string;
+			backend?: string;
+			nodeType?: string;
+			nodeIp?: string;
+			nodePort?: number;
+			vpnType?: string;
+			vpnPort?: number;
+			maximumPeers?: number;
+		} = {};
 		
-		// Validate and set 'moniker'
+		// Validate and queue 'moniker'
 		if (req.body.moniker)
 		{
 			// Get the value from the request
@@ -73,11 +83,10 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 				});
 				return ;
 			}
-			// Set the value in the configuration
-			nodeManager.setMoniker(moniker);
+			updates.moniker = moniker;
 		}
 		
-		// Validate and set 'backend'
+		// Validate and queue 'backend'
 		if (req.body.backend)
 		{
 			// Get the value from the request
@@ -92,11 +101,10 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 				});
 				return ;
 			}
-			// Set the value in the configuration
-			nodeManager.setBackend(backend);
+			updates.backend = backend;
 		}
 		
-		// Validate and set 'nodeType'
+		// Validate and queue 'nodeType'
 		if (req.body.nodeType)
 		{
 			// Get the value from the request
@@ -111,11 +119,10 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 				});
 				return ;
 			}
-			// Set the value in the configuration
-			nodeManager.setNodeType(nodeType);
+			updates.nodeType = nodeType;
 		}
 		
-		// Validate and set 'nodeIp'
+		// Validate and queue 'nodeIp'
 		if (req.body.nodeIp)
 		{
 			// Get the value from the request
@@ -130,11 +137,10 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 				});
 				return ;
 			}
-			// Set the value in the configuration
-			nodeManager.setNodeIp(nodeIp);
+			updates.nodeIp = nodeIp;
 		}
 		
-		// Validate and set 'nodePort'
+		// Validate and queue 'nodePort'
 		if (req.body.nodePort)
 		{
 			// Get the value from the request
@@ -149,11 +155,10 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 				});
 				return ;
 			}
-			// Set the value in the configuration
-			nodeManager.setNodePort(nodePort);
+			updates.nodePort = nodePort;
 		}
 		
-		// Validate and set 'vpnType'
+		// Validate and queue 'vpnType'
 		if (req.body.vpnType)
 		{
 			// Get the value from the request
@@ -168,13 +173,12 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 				});
 				return ;
 			}
-			// Set the value in the configuration
-			nodeManager.setVpnType(vpnType);
+			updates.vpnType = vpnType;
 			// Indicate that vpnType was changed
 			vpnTypeChanged = true;
 		}
 		
-		// Validate and set 'vpnPort'
+		// Validate and queue 'vpnPort'
 		if (req.body.vpnPort)
 		{
 			// Get the value from the request
@@ -189,11 +193,10 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 				});
 				return ;
 			}
-			// Set the value in the configuration
-			nodeManager.setVpnPort(vpnPort);
+			updates.vpnPort = vpnPort;
 		}
 		
-		// Validate and set 'maximumPeers'
+		// Validate and queue 'maximumPeers'
 		if (req.body.maximumPeers)
 		{
 			// Get the value from the request
@@ -208,16 +211,47 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 				});
 				return ;
 			}
-			// Set the value in the configuration
-			nodeManager.setMaxPeers(maximumPeers);
+			updates.maximumPeers = maximumPeers;
 		}
+		
+		const applyVpnUpdates = () =>
+		{
+			if (updates.vpnType)
+				nodeManager.setVpnType(updates.vpnType);
+			if (updates.vpnPort !== undefined)
+				nodeManager.setVpnPort(updates.vpnPort);
+		};
+		
+		const applyStandardUpdates = () =>
+		{
+			if (updates.moniker)
+				nodeManager.setMoniker(updates.moniker);
+			if (updates.backend)
+				nodeManager.setBackend(updates.backend);
+			if (updates.nodeType)
+				nodeManager.setNodeType(updates.nodeType);
+			if (updates.nodeIp)
+				nodeManager.setNodeIp(updates.nodeIp);
+			if (updates.nodePort !== undefined)
+				nodeManager.setNodePort(updates.nodePort);
+			if (updates.maximumPeers !== undefined)
+				nodeManager.setMaxPeers(updates.maximumPeers);
+		};
+		
+		// Ensure VPN settings are available prior to vpnChangeType
+		applyVpnUpdates();
 		
 		// If vpnType was changed, execute vpnChangeType
 		if (vpnTypeChanged)
 		{
 			Logger.info('VpnType changed, executing vpnChangeType');
 			await vpnChangeType();
+			// Reload overwritten values with the requested ones
+			applyVpnUpdates();
 		}
+		
+		applyStandardUpdates();
+		Logger.info(`Current node configuration: ${JSON.stringify(nodeManager.getConfig())}`);
 		
 		// Refresh the configuration files with the new values
 		Logger.info('Starting node configuration update process');
