@@ -7,8 +7,15 @@ DIST_DIR="/package/dist"				# Where the generated .deb will be placed
 APP_DIR="/app/"							# Node.js sources in TypeScript
 TARGET_APP_DIR="$DEB_DIR/opt/casanode"	# Destination of the compiled application in the .deb
 
-echo "=== Cleaning previous compiled application files in $TARGET_APP_DIR ==="
-find "$TARGET_APP_DIR" -mindepth 1 ! -name 'startup.sh' ! -name 'updater.sh' -delete
+echo "=== Cleaning previous compiled application files in $TARGET_APP_DIR (preserving startup scripts, updater and nginx configs) ==="
+# We keep startup.sh, updater.sh and the nginx configuration directory (nginx) so that
+# custom/admin edited reverse proxy config isn't lost between builds.
+find "$TARGET_APP_DIR" -mindepth 1 \
+	! -name 'startup.sh' \
+	! -name 'updater.sh' \
+	! -path "$TARGET_APP_DIR/nginx" \
+	! -path "$TARGET_APP_DIR/nginx/*" \
+	-delete
 
 echo "=== Creating log directory $DEB_DIR/var/log/casanode if it does not exist ==="
 mkdir -p "$DEB_DIR/var/log/casanode"
@@ -53,7 +60,7 @@ CURRENT_USER=$(stat -c '%U' "$DEB_DIR")
 chown -R root:root "$DEB_DIR"
 
 # Variables for package creation
-PACKAGE_NAME="casanode"
+PACKAGE_NAME="casanode-api"
 VERSION=$(grep '"version"' "$APP_DIR/package.json" | sed -E 's/.*"version": "([^"]+)".*/\1/')
 ARCHITECTURE="all"  # Since the project is in Node.js, we can use "all"
 DEB_FILE="$DIST_DIR/${PACKAGE_NAME}_${VERSION}_${ARCHITECTURE}.deb"
