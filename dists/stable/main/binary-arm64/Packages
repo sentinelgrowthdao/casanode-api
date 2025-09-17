@@ -33,3 +33,24 @@ Description: Casanode - dVPN node management via Bluetooth and TCP API
   includes Docker support and SSL authentication for secure node operations.
 Standards-Version: 4.1.4
 
+Package: casanode-api
+Source: casanode
+Version: 2.0.0-alpha1
+Architecture: all
+Maintainer: FoxinouFr <foxinou@foxinodes.net>
+Depends: nodejs,
+     docker-ce | docker.io,
+     nginx
+Filename: pool/main/casanode-api_2.0.0-alpha1_all.deb
+Size: 280988
+MD5sum: 4b811bba068627d7de04cb396763d9f5
+SHA1: 683af8b4e33a5249598e4c9c762ee717bd5ad915
+SHA256: 95942d828bf8f1166c7403f6f818b5a0e962d9d6b9b1b374d24783e74c0af1b3
+Section: net
+Priority: optional
+Homepage: https://github.com/sentinelgrowthdao/casanode-ble
+Description: Casanode API - dVPN node management via REST API
+     Casanode API is a lightweight service for managing decentralized VPN (dVPN) nodes.
+     It exposes a REST API (JWT-authenticated) for monitoring, configuration, and lifecycle control with Docker support.
+Standards-Version: 4.1.4
+
