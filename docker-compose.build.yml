@@ -1,7 +1,7 @@
 services:
   ubuntu:
     image: node:latest
-    container_name: casanode-ble-deb
+    container_name: casanode-api-deb
     working_dir: /package
     volumes:
       - ./app/:/app/

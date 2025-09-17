@@ -4,12 +4,12 @@ Priority: optional
 Maintainer: FoxinouFr <foxinou@foxinodes.net>
 Standards-Version: 4.1.4
 Homepage: https://github.com/sentinelgrowthdao/casanode-ble
-Package: casanode
+Package: casanode-api
 Version: 0.1.0
 Architecture: all
 Depends: nodejs,
      docker-ce | docker.io,
      nginx
-Description: Casanode - dVPN node management via REST API
-  Casanode is a lightweight service for managing decentralized VPN (dVPN) nodes.
-  It exposes a REST API (JWT-authenticated) for monitoring, configuration, and lifecycle control with Docker support.
+Description: Casanode API - dVPN node management via REST API
+     Casanode API is a lightweight service for managing decentralized VPN (dVPN) nodes.
+     It exposes a REST API (JWT-authenticated) for monitoring, configuration, and lifecycle control with Docker support.
