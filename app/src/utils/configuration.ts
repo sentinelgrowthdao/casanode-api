@@ -101,7 +101,14 @@ class ConfigurationLoader
 	 */
 	public resetConfiguration(): void
 	{
+		// Preserve the current API_AUTH so it is never regenerated during a factory reset
+		const currentApiAuth = this.config?.API_AUTH;
 		this.config = { ...this.defaultConfig };
+		if (currentApiAuth)
+		{
+			this.config.API_AUTH = currentApiAuth;
+		}
+		// Save updated configuration with preserved API_AUTH
 		this.saveConfig();
 	}
 	
