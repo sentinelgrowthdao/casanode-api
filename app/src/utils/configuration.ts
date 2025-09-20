@@ -8,19 +8,19 @@ import { Logger } from '@utils/logger';
 
 export interface AppConfigData
 {
-    [key: string]: string | number | boolean | string[] | undefined;
-    CASANODE_VERSION: string;
-    DOCKER_IMAGE_NAME: string;
-    DOCKER_CONTAINER_NAME: string;
-    CONFIG_DIR: string;
-    LOG_DIR: string;
-    DOCKER_SOCKET: string;
-    DEVICE_ID: string;
-    API_LISTEN: string;
-    API_AUTH: string;
-    JWT_SECRET: string;
-    API_BALANCE: string[];
-    FOXINODES_API_CHECK_IP: string;
+	[key: string]: string | number | boolean | string[] | undefined;
+	CASANODE_VERSION: string;
+	DOCKER_IMAGE_NAME: string;
+	DOCKER_CONTAINER_NAME: string;
+	CONFIG_DIR: string;
+	LOG_DIR: string;
+	DOCKER_SOCKET: string;
+	DEVICE_ID: string;
+	API_LISTEN: string;
+	API_AUTH: string;
+	JWT_SECRET: string;
+	API_BALANCE: string[];
+	FOXINODES_API_CHECK_IP: string;
 	FOXINODES_API_DVPN_CONFIG: string;
 	FOXINODES_API_CHECK_PORT: string;
 	SENTRY_DSN?: string;
