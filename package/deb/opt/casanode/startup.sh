@@ -6,6 +6,90 @@ LOGFILE_ROOTLESS="/var/log/casanode/rootless.log"
 USER="casanode"
 UID_USER=$(id -u "$USER")
 FLAGFILE="/opt/$USER/.docker_rootless_installed"
+SENTINEL_TAR_PATH="/opt/casanode/docker/sentinel-aarch64-alpine-v0.7.1.tar"
+SENTINEL_REMOTE_TAG="wajatmaka/sentinel-aarch64-alpine:v0.7.1"
+SENTINEL_LOCAL_TAG="sentinel-dvpn-node:latest"
+
+# Create log directory if missing
+LOGDIR="$(dirname "$LOGFILE")"
+mkdir -p "$LOGDIR"
+
+# Sentinel image (rootless)
+ensure_rootless_docker_ready()
+{
+	echo "Checking rootless Docker readiness…" | tee -a "$LOGFILE"
+
+	# Wait for the rootless daemon to respond to the user socket
+	for i in {1..20}; do
+		if su - "$USER" -s /bin/bash -c \
+			"XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock docker info >/dev/null 2>&1"
+		then
+			echo "  → Docker rootless is ready." | tee -a "$LOGFILE"
+			return 0
+		fi
+		sleep 0.5
+	done
+
+	echo "✗ Docker rootless not ready after timeout." | tee -a "$LOGFILE"
+	return 1
+}
+
+docker_user()
+{
+	# Execute a Docker command in the rootless user session with the correct environment
+	su - "$USER" -s /bin/bash -c \
+		"PATH=\$HOME/.local/bin:/usr/local/sbin:/usr/sbin:/usr/local/bin:/usr/bin:/bin \
+		XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR \
+		DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock \
+		$*"
+}
+
+image_exists()
+{
+	docker_user "docker image inspect \"$1\" >/dev/null 2>&1"
+}
+
+ensure_sentinel_image()
+{
+	echo "Ensuring Sentinel image is present (rootless)…" | tee -a "$LOGFILE"
+
+	# Preliminary checks
+	if [ ! -f "$SENTINEL_TAR_PATH" ]; then
+		echo "  → Tar not found: $SENTINEL_TAR_PATH (skip)" | tee -a "$LOGFILE"
+		return 0
+	fi
+
+	if ! ensure_rootless_docker_ready; then
+		echo "  → Skip image load: docker not ready." | tee -a "$LOGFILE"
+		return 1
+	fi
+
+	# Load the image if the “remote” tag does not exist locally
+	if ! image_exists "$SENTINEL_REMOTE_TAG"; then
+		echo "  → Loading image from tar…" | tee -a "$LOGFILE"
+		if ! docker_user "docker load -i \"$SENTINEL_TAR_PATH\""; then
+			echo "    ✗ docker load failed" | tee -a "$LOGFILE"
+			return 1
+		fi
+	else
+		echo "  → Remote tag already present: $SENTINEL_REMOTE_TAG" | tee -a "$LOGFILE"
+	fi
+
+	# Tag as “local” if missing
+	if ! image_exists "$SENTINEL_LOCAL_TAG"; then
+		echo "  → Tagging $SENTINEL_REMOTE_TAG as $SENTINEL_LOCAL_TAG" | tee -a "$LOGFILE"
+		if ! docker_user "docker tag \"$SENTINEL_REMOTE_TAG\" \"$SENTINEL_LOCAL_TAG\""; then
+			echo "    ✗ docker tag failed" | tee -a "$LOGFILE"
+			return 1
+		fi
+	else
+		echo "  → Local tag already present: $SENTINEL_LOCAL_TAG" | tee -a "$LOGFILE"
+	fi
+
+	echo "✓ Sentinel image ensured." | tee -a "$LOGFILE"
+	return 0
+}
+
 
 # Clear the log file at the start of each execution
 > "$LOGFILE"
@@ -83,6 +167,9 @@ if [ ! -f "$FLAGFILE" ]; then
 			| tee -a "$LOGFILE"
 		touch "$FLAGFILE"
 		echo "  ✓ Docker rootless installation successful." | tee -a "$LOGFILE"
+		
+		echo "  → Ensuring Sentinel image is present…" | tee -a "$LOGFILE"
+		ensure_sentinel_image
 	else
 		echo "✗ Rootless installation failed, will retry on next boot." | tee -a "$LOGFILE"
 	fi
@@ -92,8 +179,17 @@ else
 	su - "$USER" -s /bin/bash -c \
 		"XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR systemctl --user restart docker" \
 		| tee -a "$LOGFILE"
+	
+	echo "  → Ensuring Sentinel image is present…" | tee -a "$LOGFILE"
+	ensure_sentinel_image
 fi
 
+# Check if UFW is installed
+if ! command -v ufw >/dev/null 2>&1; then
+	echo "UFW not installed, skipping firewall configuration." | tee -a "$LOGFILE"
+	echo "=== Casanode startup finished ===" | tee -a "$LOGFILE"
+	exit 0
+fi
 
 # Configure UFW rules if not already configured
 UFW_STATUS=$(ufw status | grep -i "Status: active")
