@@ -1129,9 +1129,11 @@ class NodeManager
 		if (!exists || exists === undefined)
 			return exists === undefined ? undefined : true;
 		
-		// Stdin for the command
-		let stdin: string[]|null = this.buildStdinCommand(passphrase);
 		const walletName = this.getWalletName();
+		const passRepeat = this.passphraseRequired() ? 2 : 0;
+		
+		// Stdin for the command (answers for mnemonic)
+		let stdin: string[]|null = this.buildStdinCommand(passphrase, passRepeat, ['yes']);
 		this.nodeConfig.wallet_name = walletName;
 		
 		// Remove wallet keys
