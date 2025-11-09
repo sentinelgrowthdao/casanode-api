@@ -23,7 +23,6 @@ export async function checkInstallation(req: Request, res: Response): Promise<vo
 		image: installationStatus.image,
 		containerExists: installationStatus.containerExists,
 		nodeConfig: installationStatus.nodeConfig,
-		vpnConfig: installationStatus.vpnConfig,
 		certificateKey: installationStatus.certificateKey,
 		wallet: installationStatus.wallet,
 	});

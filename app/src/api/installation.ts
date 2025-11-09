@@ -1,10 +1,7 @@
 
 import { Request, Response } from 'express';
 import { Logger } from '@utils/logger';
-import {
-	createNodeConfig,
-	createVpnConfig,
-} from '@utils/node';
+import { createNodeConfig } from '@utils/node';
 import { certificateGenerate } from '@utils/certificate';
 import { imagePull } from '@utils/docker';
 
@@ -19,7 +16,6 @@ export async function installConfiguration(req: Request, res: Response): Promise
 	let statusSummary =
 	{
 		nodeConfig: false,
-		vpnConfig: false,
 		certificate: false
 	};
 	
@@ -29,9 +25,6 @@ export async function installConfiguration(req: Request, res: Response): Promise
 		
 		// Start creating the node configuration
 		statusSummary.nodeConfig = await createNodeConfig();
-		
-		// Start creating the VPN configuration
-		statusSummary.vpnConfig = await createVpnConfig();
 		
 		// Start generating the certificate
 		statusSummary.certificate = await certificateGenerate();

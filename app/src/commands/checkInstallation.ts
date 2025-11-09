@@ -10,7 +10,6 @@ export const checkInstallationCommand = async (_options: any) =>
 	console.log(`Docker image: ${status.image ? 'available' : 'not available'}`);
 	console.log(`Docker container: ${status.containerExists ? 'exists' : 'does not exist'}`);
 	console.log(`Node config: ${status.nodeConfig ? 'available' : 'not available'}`);
-	console.log(`Vpn config: ${status.vpnConfig ? 'available' : 'not available'}`);
 	console.log(`Certificate key: ${status.certificateKey ? 'available' : 'not available'}`);
 	console.log(`Wallet: ${status.wallet ? 'available' : 'not available'}`);
 };
