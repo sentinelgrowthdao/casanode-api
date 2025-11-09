@@ -342,7 +342,7 @@ class NodeManager
 	private extractConfigValueInSection(content: string, section: string, key: string): string
 	{
 		// Create a regex to match the section
-		const sectionRegex = new RegExp(`\\[${section}\\]([\\s\\S]*?)(?=\\n\\[|$)`, 'm');
+		const sectionRegex = new RegExp(`\\[${section}\\]([\\s\\S]*?)(?=\\r?\\n\\[|$)`);
 		const sectionMatch = content.match(sectionRegex);
 		// If the section is found, extract the key value
 		if (!sectionMatch)
