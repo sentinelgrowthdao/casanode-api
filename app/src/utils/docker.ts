@@ -217,7 +217,7 @@ class DockerManager
 				name: config.DOCKER_CONTAINER_NAME,
 				HostConfig: {
 					Binds: [
-						`${config.CONFIG_DIR}:/root/.sentinelnode`,
+						`${config.CONFIG_DIR}:${config.CONTAINER_DATA_DIR}`,
 						'/lib/modules:/lib/modules'
 					],
 					CapDrop: ['ALL'],
