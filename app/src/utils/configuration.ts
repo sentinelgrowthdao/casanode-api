@@ -48,6 +48,7 @@ class ConfigurationLoader
 	private defaultConfig: AppConfigData =
 		{
 			CASANODE_VERSION: 'alpha',
+			DOCKER_IMAGE_NAME: 'ghcr.io/sentinel-official/sentinel-dvpnx:latest',
 			DOCKER_CONTAINER_NAME: 'sentinel-dvpnx',
 			CONTAINER_DATA_DIR: '/root/.sentinel-dvpnx',
 			CONFIG_DIR: process.env.HOME ? path.join(process.env.HOME, '.sentinel-dvpnx') : '/opt/casanode/.sentinel-dvpnx',
