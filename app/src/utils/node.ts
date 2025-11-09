@@ -1288,11 +1288,15 @@ class NodeManager
 		const backend = this.getBackend();
 		const passRepeat = this.passphraseRequired() ? 2 : 0;
 		// Stdin for the command
-		let stdin: string[]|null = this.buildStdinCommand(passphrase, passRepeat, [mnemonic, '']);
-		
+		const baseInput: string[] = [mnemonic, ''];
+		if (!this.passphraseRequired())
+		{
+			baseInput.push('');
+			baseInput.push('');
+		}
+		let stdin: string[]|null = this.buildStdinCommand(passphrase, passRepeat, baseInput);
 		// Recover new wallet
-		const output: string|null = await containerCommand(['keys', 'add', '--keyring.backend', backend, walletName, '--recover'], stdin);
-		
+		const output: string|null = await containerCommand(['keys', 'add', '--keyring.backend', backend, walletName], stdin);
 		// Check if the passphrase is incorrect
 		if (output === null || isPassphraseError(output))
 			return undefined;
@@ -1300,7 +1304,7 @@ class NodeManager
 		// Parse the output
 		const parsedOutput = this.parseKeysAddOutput(output);
 		// If the node address and public address have been extracted
-		if (parsedOutput && parsedOutput.publicAddress && parsedOutput.mnemonicArray.length === 24)
+		if (parsedOutput && parsedOutput.publicAddress)
 		{
 			// Store the addresses
 			this.nodeConfig.walletNodeAddress = (parsedOutput.nodeAddress as string) || '';
