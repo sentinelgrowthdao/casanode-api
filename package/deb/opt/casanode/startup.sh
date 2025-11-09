@@ -6,9 +6,9 @@ LOGFILE_ROOTLESS="/var/log/casanode/rootless.log"
 USER="casanode"
 UID_USER=$(id -u "$USER")
 FLAGFILE="/opt/$USER/.docker_rootless_installed"
-SENTINEL_TAR_PATH="/opt/casanode/docker/sentinel-aarch64-alpine-v0.7.1.tar"
-SENTINEL_REMOTE_TAG="wajatmaka/sentinel-aarch64-alpine:v0.7.1"
-SENTINEL_LOCAL_TAG="sentinel-dvpn-node:latest"
+SENTINEL_TAR_PATH="/opt/casanode/docker/sentinel-dvpnx-latest.tar"
+SENTINEL_REMOTE_TAG="ghcr.io/sentinel-official/sentinel-dvpnx:latest"
+SENTINEL_LOCAL_TAG="sentinel-dvpnx:latest"
 
 # Create log directory if missing
 LOGDIR="$(dirname "$LOGFILE")"
