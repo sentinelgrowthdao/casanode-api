@@ -230,7 +230,7 @@ class NodeManager
 		if (!this.isConfigFileAvailable(configFilePath))
 		{
 			Logger.info('Configuration files do not exist.');
-			return ;
+			return;
 		}
 		
 		try
@@ -238,77 +238,63 @@ class NodeManager
 			// Load configuration file content
 			const configFileContent = fs.readFileSync(configFilePath, 'utf8');
 			
-			this.nodeConfig.moniker = this.extractConfigValueInSection(configFileContent, 'node', 'moniker');
-			this.nodeConfig.vpn_type = this.extractConfigValueInSection(configFileContent, 'node', 'service_type');
+			this.nodeConfig.moniker = this.extractConfigValueInSection(configFileContent, 'node', 'moniker') || '';
+			this.nodeConfig.vpn_type = this.extractConfigValueInSection(configFileContent, 'node', 'service_type') || 'wireguard';
 			
-			const apiPortEntry = this.extractConfigValueInSection(configFileContent, 'node', 'api_port');
-			const parsedApiPort = this.parseEndpoint(apiPortEntry);
-			if (parsedApiPort.port)
-				this.nodeConfig.node_port = parsedApiPort.port;
-			if (parsedApiPort.ip)
-				this.nodeConfig.node_ip = parsedApiPort.ip;
+			const apiPortEntry = this.extractFirstListItem(this.extractConfigValueInSection(configFileContent, 'node', 'api_port'));
+			const parsedApi = this.parseEndpoint(apiPortEntry);
+			if (parsedApi.port !== undefined)
+				this.nodeConfig.node_port = parsedApi.port;
+			if (parsedApi.ip)
+				this.nodeConfig.node_ip = parsedApi.ip;
 			
 			const remoteAddrsRaw = this.extractConfigValueInSection(configFileContent, 'node', 'remote_addrs');
-			const remoteAddrs = this.parseTomlArray(remoteAddrsRaw);
-			if (remoteAddrs.length)
+			const remoteAddrs = this.parseTomlArray(remoteAddrsRaw).map((addr) => this.normalizeAddress(addr));
+			const remoteHostCandidates = remoteAddrs.map((addr) => this.extractHost(addr)).filter((addr) => addr.length > 0);
+			if (remoteHostCandidates.length)
 			{
 				if (!this.nodeConfig.node_ip || this.nodeConfig.node_ip === '0.0.0.0')
-					this.nodeConfig.node_ip = this.pickFirstIPv4(remoteAddrs);
-				const ipv6Addr = this.pickFirstIPv6(remoteAddrs);
-				if (ipv6Addr)
-					this.nodeConfig.node_ipv6 = ipv6Addr;
+					this.nodeConfig.node_ip = remoteHostCandidates[0];
+				const ipv6Candidate = remoteHostCandidates.find((addr) => this.isIPv6Address(addr));
+				if (ipv6Candidate)
+					this.nodeConfig.node_ipv6 = ipv6Candidate;
 			}
+			if (!this.nodeConfig.node_ip || this.nodeConfig.node_ip.trim().length === 0)
+				this.nodeConfig.node_ip = '0.0.0.0';
 			
-			this.nodeConfig.chain_id = this.extractConfigValueInSection(configFileContent, 'rpc', 'chain_id');
+			this.nodeConfig.chain_id = this.extractConfigValueInSection(configFileContent, 'rpc', 'chain_id') || DEFAULT_CHAIN_ID;
 			const rpcAddrsRaw = this.extractConfigValueInSection(configFileContent, 'rpc', 'addrs');
-			const rpcAddrsList = this.parseTomlArray(rpcAddrsRaw);
-			if (rpcAddrsList.length > 0)
+			const rpcAddrsList = this.parseTomlArray(rpcAddrsRaw).map((addr) => this.normalizeAddress(addr));
+			if (rpcAddrsList.length)
 				this.nodeConfig.rpc_addresses = rpcAddrsList.join(',');
+			else if (rpcAddrsRaw)
+				this.nodeConfig.rpc_addresses = this.normalizeAddress(rpcAddrsRaw);
 			else
-				this.nodeConfig.rpc_addresses = this.cleanTomlValue(rpcAddrsRaw);
+				this.nodeConfig.rpc_addresses = DEFAULT_RPC_ADDRESSES.join(',');
 			
 			const maxPeersValue = this.extractConfigValueInSection(configFileContent, 'qos', 'max_peers');
-			this.nodeConfig.max_peers = parseInt(maxPeersValue || '0', 10);
-			this.nodeConfig.backend = this.extractConfigValueInSection(configFileContent, 'keyring', 'backend');
-			this.nodeConfig.wallet_name = this.extractConfigValueInSection(configFileContent, 'tx', 'from_name');
-			this.nodeConfig.handshake = this.extractConfigValueInSection(configFileContent, 'handshake_dns', 'enable') === 'true';
+			const maxPeersParsed = parseInt(maxPeersValue || '', 10);
+			this.nodeConfig.max_peers = Number.isFinite(maxPeersParsed) && maxPeersParsed > 0 ? maxPeersParsed : 250;
+			this.nodeConfig.backend = this.extractConfigValueInSection(configFileContent, 'keyring', 'backend') || 'test';
+			const walletName = this.extractConfigValueInSection(configFileContent, 'tx', 'from_name');
+			this.nodeConfig.wallet_name = walletName && walletName.trim().length > 0 ? walletName : 'operator';
+			this.nodeConfig.handshake = this.parseBoolean(this.extractConfigValueInSection(configFileContent, 'handshake_dns', 'enable'));
 			this.nodeConfig.gas = this.extractConfigValue(configFileContent, 'gas');
 			this.nodeConfig.gas_adjustment = this.extractConfigValue(configFileContent, 'gas_adjustment');
 			this.nodeConfig.gas_prices = this.extractConfigValue(configFileContent, 'gas_prices');
 			this.nodeConfig.gigabyte_prices = this.extractConfigValue(configFileContent, 'gigabyte_prices');
 			this.nodeConfig.hourly_prices = this.extractConfigValue(configFileContent, 'hourly_prices');
 			
-			// Set the node type based on the prices
-			this.nodeConfig.node_type = this.nodeConfig.hourly_prices === DATACENTER_HOURLY_PRICES ? 'datacenter' : this.nodeConfig.hourly_prices ? 'residential' : '';
+			if (this.nodeConfig.hourly_prices === DATACENTER_HOURLY_PRICES)
+				this.nodeConfig.node_type = 'datacenter';
+			else if (this.nodeConfig.hourly_prices && this.nodeConfig.hourly_prices.trim().length > 0)
+				this.nodeConfig.node_type = 'residential';
+			else
+				this.nodeConfig.node_type = '';
 			
-			// Load WireGuard configuration file content
-			if (this.nodeConfig.vpn_type === 'wireguard')
-			{
-				Logger.info('Loading WireGuard configuration file content');
-				const wireguardConfigPath = path.join(config.CONFIG_DIR, 'wireguard', 'config.toml');
-				const wireguardConfigContent = fs.readFileSync(wireguardConfigPath, 'utf8');
-				this.nodeConfig.vpn_port = parseInt(this.extractConfigValue(wireguardConfigContent, 'port') || '0', 10);
-				this.nodeConfig.vpn_protocol = 'udp';
-			}
-			// Load V2Ray configuration file content
-			else if (this.nodeConfig.vpn_type === 'v2ray')
-			{
-				Logger.info('Loading V2Ray configuration file content');
-				const v2rayConfigPath = path.join(config.CONFIG_DIR, 'v2ray', 'config.toml');
-				const v2rayConfigContent = fs.readFileSync(v2rayConfigPath, 'utf8');
-				this.nodeConfig.vpn_port = parseInt(this.extractConfigValue(v2rayConfigContent, 'port') || '0', 10);
-				this.nodeConfig.vpn_protocol = 'tcp';
-			}
-			else if (this.nodeConfig.vpn_type === 'openvpn')
-			{
-				Logger.info('Loading OpenVPN configuration file content');
-				const openvpnConfigPath = path.join(config.CONFIG_DIR, 'openvpn', 'config.toml');
-				const openvpnConfigContent = fs.readFileSync(openvpnConfigPath, 'utf8');
-				this.nodeConfig.vpn_port = parseInt(this.extractConfigValue(openvpnConfigContent, 'port') || '0', 10);
-				const protocol = this.extractConfigValue(openvpnConfigContent, 'protocol');
-				this.nodeConfig.vpn_protocol = protocol ? protocol.toLowerCase() : 'udp';
-			}
-			
+			this.nodeConfig.vpn_port = 0;
+			this.nodeConfig.vpn_protocol = undefined;
+			this.loadVpnConfig();
 		}
 		catch (error)
 		{
@@ -382,6 +368,118 @@ class NodeManager
 	}
 	
 	/**
+	 * Remove surrounding quotes from a value
+	 * @param value string
+	 * @returns string
+	 */
+	private stripQuotes(value: string): string
+	{
+		const trimmed = value.trim();
+		if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith('\'') && trimmed.endsWith('\'')))
+			return trimmed.slice(1, -1);
+		return trimmed;
+	}
+
+	/**
+	 * Extract the first item from a TOML list-like string
+	 * @param value string | undefined
+	 * @returns string
+	 */
+	private extractFirstListItem(value?: string): string
+	{
+		if (!value)
+			return '';
+		let normalized = value.trim();
+		if (normalized.startsWith('[') && normalized.endsWith(']'))
+			normalized = normalized.slice(1, -1).trim();
+		const commaIndex = normalized.indexOf(',');
+		if (commaIndex !== -1)
+			normalized = normalized.slice(0, commaIndex);
+		return this.stripQuotes(normalized.trim());
+	}
+
+	/**
+	 * Normalize a raw address by trimming and removing quotes
+	 * @param value string
+	 * @returns string
+	 */
+	private normalizeAddress(value: string): string
+	{
+		return this.stripQuotes(value).trim();
+	}
+
+	/**
+	 * Extract the host portion of an address, stripping ports and IPv6 brackets
+	 * @param address string
+	 * @returns string
+	 */
+	private extractHost(address: string): string
+	{
+		let normalized = address.trim();
+		if (!normalized)
+			return '';
+		if (normalized.startsWith('['))
+		{
+			const closing = normalized.indexOf(']');
+			if (closing > 0)
+			{
+				normalized = normalized.slice(1, closing);
+			}
+		}
+		else
+		{
+			const lastColonIndex = normalized.lastIndexOf(':');
+			if (lastColonIndex > -1 && normalized.indexOf(':') === lastColonIndex)
+			{
+				const portCandidate = normalized.slice(lastColonIndex + 1).trim();
+				if (/^\d+$/.test(portCandidate))
+					normalized = normalized.slice(0, lastColonIndex);
+			}
+		}
+		return normalized;
+	}
+
+	/**
+	 * Determine if the provided address is IPv6
+	 * @param address string
+	 * @returns boolean
+	 */
+	private isIPv6Address(address: string): boolean
+	{
+		return address.includes(':') && !address.includes('::ffff:');
+	}
+
+	/**
+	 * Parse a boolean value from string
+	 * @param value string | undefined
+	 * @returns boolean
+	 */
+	private parseBoolean(value?: string): boolean
+	{
+		if (!value)
+			return false;
+		const normalized = value.trim().toLowerCase();
+		return ['true', '1', 'yes', 'on'].includes(normalized);
+	}
+
+	/**
+	 * Parse a port entry extracting last numeric token
+	 * @param value string
+	 * @returns number | undefined
+	 */
+	private parsePortValue(value: string): number | undefined
+	{
+		const normalized = this.stripQuotes(value).trim();
+		if (!normalized)
+			return undefined;
+		const segments = normalized.split(':');
+		const lastSegment = segments[segments.length - 1]?.trim() ?? '';
+		if (/^\d+$/.test(lastSegment))
+			return parseInt(lastSegment, 10);
+		return undefined;
+	}
+	
+	/**
 	 * Parse a TOML array string into an array of strings
 	 * @param value - TOML array string
 	 * @returns string[]
@@ -394,7 +492,7 @@ class NodeManager
 		if (normalized.startsWith('[') && normalized.endsWith(']'))
 			normalized = normalized.slice(1, -1);
 		return normalized.split(',')
-			.map((item) => item.trim().replace(/^"|"$/g, ''))
+			.map((item) => this.stripQuotes(item.trim()))
 			.filter((item) => item.length > 0);
 	}
 	
@@ -408,7 +506,7 @@ class NodeManager
 		if (!entry)
 			return {};
 		
-		const cleaned = entry.replace(/^"|"$/g, '').trim();
+		const cleaned = this.stripQuotes(entry);
 		if (!cleaned)
 			return {};
 		
@@ -442,23 +540,86 @@ class NodeManager
 	}
 	
 	/**
-	 * Pick the first IPv4 address from the list
-	 * @param addresses string[]
-	 * @returns string
+	 * Load VPN configuration based on the current VPN type
 	 */
-	private pickFirstIPv4(addresses: string[]): string
+	private loadVpnConfig(): void
 	{
-		return addresses.find((addr) => addr.includes('.')) || addresses[0] || '';
-	}
-	
-	/**
-	 * Pick the first IPv6 address from the list
-	 * @param addresses string[]
-	 * @returns string
-	 */
-	private pickFirstIPv6(addresses: string[]): string
-	{
-		return addresses.find((addr) => addr.includes(':') && !addr.includes('://')) || '';
+		const wireguardConfigPath = path.join(config.CONFIG_DIR, 'wireguard', 'config.toml');
+		const v2rayConfigPath = path.join(config.CONFIG_DIR, 'v2ray', 'config.toml');
+		const openvpnConfigPath = path.join(config.CONFIG_DIR, 'openvpn', 'config.toml');
+
+		if (this.nodeConfig.vpn_type === 'wireguard')
+		{
+			this.nodeConfig.vpn_protocol = 'udp';
+			if (this.isConfigFileAvailable(wireguardConfigPath))
+			{
+				try
+				{
+					const wireguardConfigContent = fs.readFileSync(wireguardConfigPath, 'utf8');
+					const portValue = this.extractConfigValue(wireguardConfigContent, 'port');
+					const parsedPort = portValue ? this.parsePortValue(portValue) : undefined;
+					if (parsedPort !== undefined)
+						this.nodeConfig.vpn_port = parsedPort;
+				}
+				catch (error)
+				{
+					Logger.error(`Error loading WireGuard configuration: ${error}`);
+				}
+			}
+			return;
+		}
+
+		if (this.nodeConfig.vpn_type === 'v2ray')
+		{
+			this.nodeConfig.vpn_protocol = 'tcp';
+			if (this.isConfigFileAvailable(v2rayConfigPath))
+			{
+				try
+				{
+					const v2rayConfigContent = fs.readFileSync(v2rayConfigPath, 'utf8');
+					const portValue = this.extractConfigValue(v2rayConfigContent, 'port');
+					const parsedPort = portValue ? this.parsePortValue(portValue) : undefined;
+					if (parsedPort !== undefined)
+						this.nodeConfig.vpn_port = parsedPort;
+				}
+				catch (error)
+				{
+					Logger.error(`Error loading V2Ray configuration: ${error}`);
+				}
+			}
+			return;
+		}
+
+		if (this.nodeConfig.vpn_type === 'openvpn')
+		{
+			if (this.isConfigFileAvailable(openvpnConfigPath))
+			{
+				try
+				{
+					const openvpnConfigContent = fs.readFileSync(openvpnConfigPath, 'utf8');
+					const portValue = this.extractConfigValue(openvpnConfigContent, 'port');
+					const parsedPort = portValue ? this.parsePortValue(portValue) : undefined;
+					if (parsedPort !== undefined)
+						this.nodeConfig.vpn_port = parsedPort;
+					const protocolValue = this.extractConfigValue(openvpnConfigContent, 'protocol');
+					const normalizedProtocol = protocolValue ? this.stripQuotes(protocolValue).trim().toLowerCase() : '';
+					this.nodeConfig.vpn_protocol = normalizedProtocol === 'tcp' ? 'tcp' : 'udp';
+				}
+				catch (error)
+				{
+					Logger.error(`Error loading OpenVPN configuration: ${error}`);
+				}
+			}
+			else
+			{
+				this.nodeConfig.vpn_protocol = 'udp';
+			}
+			return;
+		}
+
+		// Default fallback
+		if (!this.nodeConfig.vpn_protocol)
+			this.nodeConfig.vpn_protocol = 'udp';
 	}
 	
 	/**
