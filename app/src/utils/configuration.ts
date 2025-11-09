@@ -12,6 +12,7 @@ export interface AppConfigData
 	CASANODE_VERSION: string;
 	DOCKER_IMAGE_NAME: string;
 	DOCKER_CONTAINER_NAME: string;
+	CONTAINER_DATA_DIR: string;
 	CONFIG_DIR: string;
 	LOG_DIR: string;
 	DOCKER_SOCKET: string;
@@ -47,9 +48,9 @@ class ConfigurationLoader
 	private defaultConfig: AppConfigData =
 		{
 			CASANODE_VERSION: 'alpha',
-			DOCKER_IMAGE_NAME: 'wajatmaka/sentinel-aarch64-alpine:v0.7.1',
-			DOCKER_CONTAINER_NAME: 'sentinel-dvpn-node',
-			CONFIG_DIR: process.env.HOME ? path.join(process.env.HOME, '.sentinelnode') : '/opt/casanode/.sentinelnode',
+			DOCKER_CONTAINER_NAME: 'sentinel-dvpnx',
+			CONTAINER_DATA_DIR: '/root/.sentinel-dvpnx',
+			CONFIG_DIR: process.env.HOME ? path.join(process.env.HOME, '.sentinel-dvpnx') : '/opt/casanode/.sentinel-dvpnx',
 			LOG_DIR: '/var/log/casanode',
 			DOCKER_SOCKET: this.getDockerDefaultSocketPath(),
 			DEVICE_ID: uuidv4(),

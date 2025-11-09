@@ -157,8 +157,8 @@ export async function resetSystem(): Promise<void>
 			// Determine user's home directory
 			const userHomeDir = os.homedir();
 			
-			// Delete specific directory: /opt/casanode/.sentinelnode/
-			const sentinelNodeDir = `${userHomeDir}/.sentinelnode`;
+			// Delete specific directory for Sentinel configuration
+			const sentinelNodeDir = config?.CONFIG_DIR || `${userHomeDir}/.sentinel-dvpnx`;
 			Logger.info(`Deleting directory: ${sentinelNodeDir}`);
 			await fs.rm(sentinelNodeDir, { recursive: true });
 			

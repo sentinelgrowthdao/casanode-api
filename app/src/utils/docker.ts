@@ -666,7 +666,7 @@ class DockerManager
 			{
 				HostConfig:
 				{
-					Binds: [`${configDir}:/root/.sentinelnode`],
+					Binds: [`${configDir}:${config.CONTAINER_DATA_DIR}`],
 					AutoRemove: true
 				},
 				AttachStdout: true,
