@@ -1157,28 +1157,40 @@ class NodeManager
 	 */
 	private parseKeysAddOutput(output: string): { [key: string]: string | string[] } | null
 	{
+		// Remove ANSI escape codes to clean the output
+		const cleanOutput = output.replace(/\x1b\[[0-9;]*m/g, '');
+		
 		// Regex to extract data
 		const nodeAddressRegex = /\bsentnode\w+\b/;
-		const publicAddressRegex = /\bsent(?!node)\w+\b/;
-		const mnemonicRegex = /^(?!.*\*\*Important\*\*)\b(?:\w+\s+){23}\w+\b/m;
+		const publicAddressRegex = /e?address:\s*(sent\w+)/i;
+		// Try to capture mnemonic from a "mnemonic: ..." line first, fallback to a generic 24-word match
+		const mnemonicLineRegex = /mnemonic:\s*([^\n]+)/i;
+		const mnemonicFallbackRegex = /\b(?:[a-z]+(?:\s+|$)){24}\b/i;
 		
 		// Extract node address
-		const nodeAddressMatch = output.match(nodeAddressRegex);
+		const nodeAddressMatch = cleanOutput.match(nodeAddressRegex);
 		const nodeAddress = nodeAddressMatch ? nodeAddressMatch[0] : '';
 		
 		// Extract public address
-		const publicAddressMatch = output.match(publicAddressRegex);
-		const publicAddress = publicAddressMatch ? publicAddressMatch[0] : '';
+		const publicAddressMatch = cleanOutput.match(publicAddressRegex);
+		const publicAddress = publicAddressMatch ? publicAddressMatch[1] : '';
 		
-		// Extract mnemonic phrase
-		const mnemonicMatch = output.match(mnemonicRegex);
-		const mnemonicArray = mnemonicMatch
-			? mnemonicMatch[0].trim()
-				.split(/\s+/)
-			: [];
+		// Extract mnemonic phrase (prefer the explicit "mnemonic:" line)
+		let mnemonicArray: string[] = [];
+		const mnemonicLineMatch = cleanOutput.match(mnemonicLineRegex);
+		if (mnemonicLineMatch && mnemonicLineMatch[1])
+		{
+			mnemonicArray = mnemonicLineMatch[1].trim().split(/\s+/);
+		}
+		else
+		{
+			const mnemonicFallbackMatch = cleanOutput.match(mnemonicFallbackRegex);
+			if (mnemonicFallbackMatch)
+				mnemonicArray = mnemonicFallbackMatch[0].trim().split(/\s+/);
+		}
 		
-		// If the public address and mnemonic have been extracted
-		if (publicAddress && mnemonicArray.length === 24)
+		// If the public address has been extracted (mnemonic may or may not be present)
+		if (publicAddress)
 		{
 			// Return data
 			return {
