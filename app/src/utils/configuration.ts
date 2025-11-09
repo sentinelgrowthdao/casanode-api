@@ -35,6 +35,7 @@ export interface ConfigFileData
 export interface RemoteAddressData
 {
 	ip: string;
+	ipv6: string;
 	country: string;
 }
 
@@ -228,7 +229,42 @@ class ConfigurationLoader
 	{
 		// Initialize default values
 		let nodeIP = '0.0.0.0';
+		let nodeIPv6 = '';
 		let nodeCountry = 'NA';
+		
+		const requests: Promise<void>[] = [];
+		
+		// Attempt to get IPv4 address
+		requests.push((async () =>
+		{
+			try
+			{
+				const response = await axios.get('https://api.ipify.org?format=json', { timeout: 10000 });
+				if (response.status === 200 && response.data.ip)
+					nodeIP = response.data.ip;
+			}
+			catch (error)
+			{
+				Logger.error(`Failed to get IPv4 from ipify: ${error}`);
+			}
+		})());
+		
+		// Attempt to get IPv6 address
+		requests.push((async () =>
+		{
+			try
+			{
+				const response = await axios.get('https://api64.ipify.org?format=json', { timeout: 10000 });
+				if (response.status === 200 && response.data.ip)
+					nodeIPv6 = response.data.ip;
+			}
+			catch (error)
+			{
+				Logger.error(`Failed to get IPv6 from ipify: ${error}`);
+			}
+		})());
+		
+		await Promise.all(requests);
 		
 		try
 		{
@@ -238,6 +274,7 @@ class ConfigurationLoader
 			{
 				const data = response.data;
 				nodeIP = data.ip || nodeIP;
+				nodeIPv6 = data.ip6 || nodeIPv6;
 				nodeCountry = data.iso_code || nodeCountry;
 			}
 			else
@@ -271,6 +308,7 @@ class ConfigurationLoader
 		// Return IP and country
 		return {
 			ip: nodeIP,
+			ipv6: nodeIPv6 || '',
 			country: nodeCountry
 		};
 	}
