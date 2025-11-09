@@ -273,7 +273,7 @@ class DockerManager
 				await this.docker.createContainer({
 					...createOptions,
 					Image: config.DOCKER_CONTAINER_NAME,
-					Cmd: ['process', 'start']
+					Cmd: ['start']
 				});
 				result = await this.startContainerWithoutPassphrase(config.DOCKER_CONTAINER_NAME);
 			}
@@ -329,7 +329,7 @@ class DockerManager
 			const options = {
 				name: containerName,
 				Image: config.DOCKER_CONTAINER_NAME,
-				Cmd: ['process', 'start'],
+				Cmd: ['start'],
 				abortSignal: undefined,
 				AttachStdin: true,
 				AttachStdout: true,
@@ -378,7 +378,7 @@ class DockerManager
 							// Stop the container
 							container.stop();
 							// Log the error
-							Logger.error(`Container command "process start" failed: ${data.toString()}`);
+							Logger.error(`Container command "start" failed: ${data.toString()}`);
 							return reject(false);
 						}
 						else if (data.toString().includes('Querying the account'))
