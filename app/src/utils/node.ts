@@ -49,7 +49,9 @@ export interface NodeConfigData
 	chain_id: string;
 	rpc_addresses: string;
 	node_ip: string;
+	node_ipv6: string;
 	vpn_type: string;
+	vpn_protocol?: string;
 	node_port: number;
 	vpn_port: number;
 	backend: string;
@@ -105,19 +107,21 @@ class NodeManager
 	private defaultNodeConfig: NodeConfigData = {
 		moniker: '',
 		node_type: '',
-		chain_id: '',
-		rpc_addresses: '',
+		chain_id: DEFAULT_CHAIN_ID,
+		rpc_addresses: DEFAULT_RPC_ADDRESSES.join(','),
 		node_ip: '',
-		vpn_type: '',
+		node_ipv6: '',
+		vpn_type: 'wireguard',
+		vpn_protocol: 'udp',
 		node_port: 0,
 		vpn_port: 0,
-		backend: '',
-		handshake: false,
-		wallet_name: '',
-		max_peers: 0,
-		gas: '',
-		gas_adjustment: '',
-		gas_prices: '',
+		backend: 'test',
+		handshake: true,
+		wallet_name: 'operator',
+		max_peers: 250,
+		gas: '200000',
+		gas_adjustment: '1.05',
+		gas_prices: '0.2udvpn',
 		gigabyte_prices: '',
 		hourly_prices: '',
 		// Contains the public address of the wallet
@@ -234,32 +238,45 @@ class NodeManager
 			// Load configuration file content
 			const configFileContent = fs.readFileSync(configFilePath, 'utf8');
 			
-			// Parse configuration file content
-			this.nodeConfig.moniker = this.extractConfigValue(configFileContent, 'moniker');
-			this.nodeConfig.chain_id = this.extractConfigValue(configFileContent, 'id');
-			this.nodeConfig.rpc_addresses = this.extractConfigValue(configFileContent, 'rpc_addresses');
-			this.nodeConfig.vpn_type = this.extractConfigValue(configFileContent, 'type');
-			this.nodeConfig.max_peers = parseInt(this.extractConfigValue(configFileContent, 'max_peers'));
-			this.nodeConfig.backend = this.extractConfigValue(configFileContent, 'backend');
-			this.nodeConfig.wallet_name = this.extractConfigValue(configFileContent, 'from');
-			this.nodeConfig.handshake = this.extractConfigValueInSection(configFileContent, 'handshake', 'enable') === 'true';
+			this.nodeConfig.moniker = this.extractConfigValueInSection(configFileContent, 'node', 'moniker');
+			this.nodeConfig.vpn_type = this.extractConfigValueInSection(configFileContent, 'node', 'service_type');
+			
+			const apiPortEntry = this.extractConfigValueInSection(configFileContent, 'node', 'api_port');
+			const parsedApiPort = this.parseEndpoint(apiPortEntry);
+			if (parsedApiPort.port)
+				this.nodeConfig.node_port = parsedApiPort.port;
+			if (parsedApiPort.ip)
+				this.nodeConfig.node_ip = parsedApiPort.ip;
+			
+			const remoteAddrsRaw = this.extractConfigValueInSection(configFileContent, 'node', 'remote_addrs');
+			const remoteAddrs = this.parseTomlArray(remoteAddrsRaw);
+			if (remoteAddrs.length)
+			{
+				if (!this.nodeConfig.node_ip || this.nodeConfig.node_ip === '0.0.0.0')
+					this.nodeConfig.node_ip = this.pickFirstIPv4(remoteAddrs);
+				const ipv6Addr = this.pickFirstIPv6(remoteAddrs);
+				if (ipv6Addr)
+					this.nodeConfig.node_ipv6 = ipv6Addr;
+			}
+			
+			this.nodeConfig.chain_id = this.extractConfigValueInSection(configFileContent, 'rpc', 'chain_id');
+			const rpcAddrsRaw = this.extractConfigValueInSection(configFileContent, 'rpc', 'addrs');
+			const rpcAddrsList = this.parseTomlArray(rpcAddrsRaw);
+			if (rpcAddrsList.length > 0)
+				this.nodeConfig.rpc_addresses = rpcAddrsList.join(',');
+			else
+				this.nodeConfig.rpc_addresses = this.cleanTomlValue(rpcAddrsRaw);
+			
+			const maxPeersValue = this.extractConfigValueInSection(configFileContent, 'qos', 'max_peers');
+			this.nodeConfig.max_peers = parseInt(maxPeersValue || '0', 10);
+			this.nodeConfig.backend = this.extractConfigValueInSection(configFileContent, 'keyring', 'backend');
+			this.nodeConfig.wallet_name = this.extractConfigValueInSection(configFileContent, 'tx', 'from_name');
+			this.nodeConfig.handshake = this.extractConfigValueInSection(configFileContent, 'handshake_dns', 'enable') === 'true';
 			this.nodeConfig.gas = this.extractConfigValue(configFileContent, 'gas');
 			this.nodeConfig.gas_adjustment = this.extractConfigValue(configFileContent, 'gas_adjustment');
 			this.nodeConfig.gas_prices = this.extractConfigValue(configFileContent, 'gas_prices');
 			this.nodeConfig.gigabyte_prices = this.extractConfigValue(configFileContent, 'gigabyte_prices');
 			this.nodeConfig.hourly_prices = this.extractConfigValue(configFileContent, 'hourly_prices');
-			
-			// Extract the node IP and port
-			const remote_url = this.extractConfigValue(configFileContent, 'remote_url');
-			const listen_on = this.extractConfigValue(configFileContent, 'listen_on');
-			
-			// Extract the node IP and port
-			if (remote_url && remote_url !== '' && remote_url.includes(':'))
-				this.nodeConfig.node_ip = remote_url.split('/')[2].split(':')[0];
-			
-			// Extract the node port
-			if (listen_on && listen_on !== '' && listen_on.includes(':'))
-				this.nodeConfig.node_port = parseInt(listen_on.split(':')[1]);
 			
 			// Set the node type based on the prices
 			this.nodeConfig.node_type = this.nodeConfig.hourly_prices === DATACENTER_HOURLY_PRICES ? 'datacenter' : this.nodeConfig.hourly_prices ? 'residential' : '';
@@ -268,17 +285,28 @@ class NodeManager
 			if (this.nodeConfig.vpn_type === 'wireguard')
 			{
 				Logger.info('Loading WireGuard configuration file content');
-				const wireguardConfigPath = path.join(config.CONFIG_DIR, 'wireguard.toml');
+				const wireguardConfigPath = path.join(config.CONFIG_DIR, 'wireguard', 'config.toml');
 				const wireguardConfigContent = fs.readFileSync(wireguardConfigPath, 'utf8');
-				this.nodeConfig.vpn_port = parseInt(this.extractConfigValue(wireguardConfigContent, 'listen_port'));
+				this.nodeConfig.vpn_port = parseInt(this.extractConfigValue(wireguardConfigContent, 'port') || '0', 10);
+				this.nodeConfig.vpn_protocol = 'udp';
 			}
 			// Load V2Ray configuration file content
 			else if (this.nodeConfig.vpn_type === 'v2ray')
 			{
 				Logger.info('Loading V2Ray configuration file content');
-				const v2rayConfigPath = path.join(config.CONFIG_DIR, 'v2ray.toml');
+				const v2rayConfigPath = path.join(config.CONFIG_DIR, 'v2ray', 'config.toml');
 				const v2rayConfigContent = fs.readFileSync(v2rayConfigPath, 'utf8');
-				this.nodeConfig.vpn_port = parseInt(this.extractConfigValue(v2rayConfigContent, 'listen_port'));
+				this.nodeConfig.vpn_port = parseInt(this.extractConfigValue(v2rayConfigContent, 'port') || '0', 10);
+				this.nodeConfig.vpn_protocol = 'tcp';
+			}
+			else if (this.nodeConfig.vpn_type === 'openvpn')
+			{
+				Logger.info('Loading OpenVPN configuration file content');
+				const openvpnConfigPath = path.join(config.CONFIG_DIR, 'openvpn', 'config.toml');
+				const openvpnConfigContent = fs.readFileSync(openvpnConfigPath, 'utf8');
+				this.nodeConfig.vpn_port = parseInt(this.extractConfigValue(openvpnConfigContent, 'port') || '0', 10);
+				const protocol = this.extractConfigValue(openvpnConfigContent, 'protocol');
+				this.nodeConfig.vpn_protocol = protocol ? protocol.toLowerCase() : 'udp';
 			}
 			
 		}
@@ -300,6 +328,9 @@ class NodeManager
 		// Set the node IP address only if it is not already set
 		if (this.nodeConfig.node_ip === '')
 			this.nodeConfig.node_ip = remoteAddress.ip ?? '';
+		// Update IPv6 information when available
+		if (remoteAddress.ipv6)
+			this.nodeConfig.node_ipv6 = remoteAddress.ipv6;
 	}
 	
 	/**
@@ -310,10 +341,9 @@ class NodeManager
 	 */
 	private extractConfigValue(content: string, key: string): string
 	{
-		const regex = new RegExp(`^${key}\\s*=\\s*"?([^"\\r\\n]*)"?`, 'm');
+		const regex = new RegExp(`^\\s*${key}\\s*=\\s*(.+)$`, 'm');
 		const match = content.match(regex);
-		// Return the value if found, otherwise an empty string
-		return match ? match[1].trim() : '';
+		return match ? this.cleanTomlValue(match[1]) : '';
 	}
 	
 	/**
@@ -326,17 +356,189 @@ class NodeManager
 	private extractConfigValueInSection(content: string, section: string, key: string): string
 	{
 		// Create a regex to match the section
-		const sectionRegex = new RegExp(`\\[${section}\\]([\\s\\S]*?)\\[`, 'm');
+		const sectionRegex = new RegExp(`\\[${section}\\]([\\s\\S]*?)(?=\\n\\[|$)`, 'm');
 		const sectionMatch = content.match(sectionRegex);
 		// If the section is found, extract the key value
-		if (sectionMatch)
+		if (!sectionMatch)
+			return '';
+		
+		// Create a regex to match the key
+		const keyRegex = new RegExp(`^\\s*${key}\\s*=\\s*(.+)$`, 'm');
+		const keyMatch = sectionMatch[1].match(keyRegex);
+		return keyMatch ? this.cleanTomlValue(keyMatch[1]) : '';
+	}
+	
+	/**
+	 * Clean TOML value by removing surrounding quotes
+	 * @param value - TOML value
+	 * @returns string
+	 */
+	private cleanTomlValue(value: string): string
+	{
+		const trimmed = value.trim();
+		if ((trimmed.startsWith('"') && trimmed.endsWith('"')) || (trimmed.startsWith('\'') && trimmed.endsWith('\'')))
+			return trimmed.slice(1, -1);
+		return trimmed;
+	}
+	
+	/**
+	 * Parse a TOML array string into an array of strings
+	 * @param value - TOML array string
+	 * @returns string[]
+	 */
+	private parseTomlArray(value: string): string[]
+	{
+		if (!value)
+			return [];
+		let normalized = value.trim();
+		if (normalized.startsWith('[') && normalized.endsWith(']'))
+			normalized = normalized.slice(1, -1);
+		return normalized.split(',')
+			.map((item) => item.trim().replace(/^"|"$/g, ''))
+			.filter((item) => item.length > 0);
+	}
+	
+	/**
+	 * Parse an endpoint string into IP and port
+	 * @param entry - Endpoint string
+	 * @returns { ip?: string; port?: number }
+	 */
+	private parseEndpoint(entry: string): { ip?: string; port?: number }
+	{
+		if (!entry)
+			return {};
+		
+		const cleaned = entry.replace(/^"|"$/g, '').trim();
+		if (!cleaned)
+			return {};
+		
+		if (cleaned.startsWith('['))
 		{
-			// Create a regex to match the key
-			const keyRegex = new RegExp(`^${key}\\s*=\\s*"?([^"\\r\\n]*)"?`, 'm');
-			const keyMatch = sectionMatch[1].match(keyRegex);
-			return keyMatch ? keyMatch[1].trim() : '';
+			const closingIndex = cleaned.indexOf(']');
+			const ip = cleaned.slice(1, closingIndex);
+			const portSegment = cleaned.slice(closingIndex + 1);
+			const port = portSegment.startsWith(':') ? parseInt(portSegment.slice(1), 10) : undefined;
+			return {
+				ip,
+				port: Number.isFinite(port) ? port : undefined
+			};
 		}
-		return '';
+		
+		if (/^\d+$/.test(cleaned))
+			return { port: parseInt(cleaned, 10) };
+		
+		const lastColonIndex = cleaned.lastIndexOf(':');
+		if (lastColonIndex > -1 && cleaned.indexOf(':') === lastColonIndex)
+		{
+			const ip = cleaned.slice(0, lastColonIndex);
+			const port = parseInt(cleaned.slice(lastColonIndex + 1), 10);
+			return {
+				ip,
+				port: Number.isFinite(port) ? port : undefined
+			};
+		}
+		
+		return { ip: cleaned };
+	}
+	
+	/**
+	 * Pick the first IPv4 address from the list
+	 * @param addresses string[]
+	 * @returns string
+	 */
+	private pickFirstIPv4(addresses: string[]): string
+	{
+		return addresses.find((addr) => addr.includes('.')) || addresses[0] || '';
+	}
+	
+	/**
+	 * Pick the first IPv6 address from the list
+	 * @param addresses string[]
+	 * @returns string
+	 */
+	private pickFirstIPv6(addresses: string[]): string
+	{
+		return addresses.find((addr) => addr.includes(':') && !addr.includes('://')) || '';
+	}
+	
+	/**
+	 * Build remote addresses list
+	 * @returns string[]
+	 */
+	private buildRemoteAddressesList(): string[]
+	{
+		const addresses: string[] = [];
+		if (this.nodeConfig.node_ip && this.nodeConfig.node_ip !== '0.0.0.0')
+			addresses.push(this.nodeConfig.node_ip);
+		if (this.nodeConfig.node_ipv6 && this.nodeConfig.node_ipv6 !== '::1')
+			addresses.push(this.nodeConfig.node_ipv6);
+		if (!addresses.length)
+			addresses.push('127.0.0.1');
+		return [...new Set(addresses)];
+	}
+	
+	/**
+	 * Format remote addresses for TOML
+	 * @param addresses string[]
+	 * @returns string
+	 */
+	private formatRemoteAddresses(addresses: string[]): string
+	{
+		if (!addresses.length)
+			return '["127.0.0.1"]';
+		return `[${addresses.map((addr) => `"${addr}"`).join(', ')}]`;
+	}
+	
+	/**
+	 * Get RPC addresses as an array
+	 * @returns string[]
+	 */
+	private getRpcAddresses(): string[]
+	{
+		const parsed = this.parseTomlArray(this.nodeConfig.rpc_addresses);
+		if (parsed.length)
+			return parsed;
+		
+		return this.nodeConfig.rpc_addresses
+			.split(',')
+			.map((addr) => addr.replace(/[\[\]"]/g, '').trim())
+			.filter((addr) => addr.length > 0);
+	}
+	
+	/**
+	 * Format RPC addresses for TOML
+	 * @returns string
+	 */
+	private formatRpcAddresses(): string
+	{
+		const rpcAddresses = this.getRpcAddresses();
+		if (!rpcAddresses.length)
+			return '[]';
+		return `[${rpcAddresses.map((addr) => `"${addr}"`).join(', ')}]`;
+	}
+	
+	/**
+	 * Format a value for TOML
+	 * @param value - Value to format
+	 * @param quote - Whether to quote the value
+	 * @returns string
+	 */
+	private formatTomlValue(value: string | number | boolean, quote?: boolean): string
+	{
+		if (typeof value === 'number' || typeof value === 'boolean')
+			return `${value}`;
+		
+		if (quote === false)
+			return value;
+		
+		if (quote === true)
+			return `"${value}"`;
+		
+		const trimmed = value.trim();
+		if (trimmed.startsWith('[') || trimmed.startsWith('{'))
+			return value;
+		
+		return `"${value}"`;
 	}
 
 	/**
@@ -348,18 +550,33 @@ class NodeManager
 		
 		try
 		{
-			this.updateConfigValue(configFilePath, 'moniker', this.nodeConfig.moniker);
-			this.updateConfigValue(configFilePath, 'id', this.nodeConfig.chain_id);
-			this.updateConfigValue(configFilePath, 'rpc_addresses', this.nodeConfig.rpc_addresses);
-			this.updateConfigValue(configFilePath, 'listen_on', `0.0.0.0:${this.nodeConfig.node_port}`);
-			this.updateConfigValue(configFilePath, 'remote_url', `https://${this.nodeConfig.node_ip}:${this.nodeConfig.node_port}`);
-			this.updateConfigValue(configFilePath, 'backend', this.nodeConfig.backend);
-			this.updateConfigValue(configFilePath, 'max_peers', this.nodeConfig.max_peers);
-			this.updateConfigValue(configFilePath, 'gas', this.nodeConfig.gas);
-			this.updateConfigValue(configFilePath, 'gas_adjustment', this.nodeConfig.gas_adjustment);
+			this.updateConfigValueInSection(configFilePath, 'node', 'moniker', this.nodeConfig.moniker);
+			this.updateConfigValueInSection(configFilePath, 'node', 'service_type', this.nodeConfig.vpn_type);
+			this.updateConfigValueInSection(configFilePath, 'node', 'api_port', this.nodeConfig.node_port.toString(), { quote: true });
+			const remoteAddrsValue = this.formatRemoteAddresses(this.buildRemoteAddressesList());
+			this.updateConfigValueInSection(configFilePath, 'node', 'remote_addrs', remoteAddrsValue, { quote: false });
+			
+			this.updateConfigValueInSection(configFilePath, 'rpc', 'chain_id', this.nodeConfig.chain_id);
+			this.updateConfigValueInSection(configFilePath, 'rpc', 'addrs', this.formatRpcAddresses(), { quote: false });
+			this.updateConfigValueInSection(configFilePath, 'keyring', 'backend', this.nodeConfig.backend);
+			this.updateConfigValueInSection(configFilePath, 'tx', 'from_name', this.nodeConfig.wallet_name);
+			this.updateConfigValueInSection(configFilePath, 'handshake_dns', 'enable', this.nodeConfig.handshake ? 'true' : 'false', { quote: false });
+			this.updateConfigValueInSection(configFilePath, 'qos', 'max_peers', this.nodeConfig.max_peers, { quote: false });
+			
+			this.updateConfigValue(configFilePath, 'gas', this.nodeConfig.gas, { quote: false });
+			this.updateConfigValue(configFilePath, 'gas_adjustment', this.nodeConfig.gas_adjustment, { quote: false });
 			this.updateConfigValue(configFilePath, 'gas_prices', this.nodeConfig.gas_prices);
-			this.updateConfigValue(configFilePath, 'gigabyte_prices', this.nodeConfig.gigabyte_prices);
-			this.updateConfigValue(configFilePath, 'hourly_prices', this.nodeConfig.hourly_prices);
+			
+			if (this.nodeConfig.node_type === 'residential')
+			{
+				this.updateConfigValue(configFilePath, 'gigabyte_prices', RESIDENTIAL_GIGABYTE_PRICES);
+				this.updateConfigValue(configFilePath, 'hourly_prices', RESIDENTIAL_HOURLY_PRICES);
+			}
+			else
+			{
+				this.updateConfigValue(configFilePath, 'gigabyte_prices', DATACENTER_GIGABYTE_PRICES);
+				this.updateConfigValue(configFilePath, 'hourly_prices', DATACENTER_HOURLY_PRICES);
+			}
 			
 			// Apply VPN configuration changes
 			this.vpnChangeType();
@@ -380,11 +597,12 @@ class NodeManager
 	{
 		// Configuration file paths
 		const configFilePath = path.join(config.CONFIG_DIR, 'config.toml');
-		const wireguardConfigPath = path.join(config.CONFIG_DIR, 'wireguard.toml');
-		const v2rayConfigPath = path.join(config.CONFIG_DIR, 'v2ray.toml');
+		const wireguardConfigPath = path.join(config.CONFIG_DIR, 'wireguard', 'config.toml');
+		const v2rayConfigPath = path.join(config.CONFIG_DIR, 'v2ray', 'config.toml');
+		const openvpnConfigPath = path.join(config.CONFIG_DIR, 'openvpn', 'config.toml');
 		
 		// Get the current VPN type
-		const current_vpn_type = this.extractConfigValue(fs.readFileSync(configFilePath, 'utf8'), 'type');
+		const current_vpn_type = this.extractConfigValueInSection(fs.readFileSync(configFilePath, 'utf8'), 'node', 'service_type');
 		// Get the VPN port
 		const current_vpn_port = this.nodeConfig.vpn_port;
 		
@@ -396,69 +614,43 @@ class NodeManager
 			// If the configuration file exists, update the VPN port
 			if (this.nodeConfig.vpn_type === 'wireguard')
 			{
-				// Update the listen port
-				this.updateConfigValue(wireguardConfigPath, 'listen_port', current_vpn_port);
+				this.updateConfigValue(wireguardConfigPath, 'port', current_vpn_port, { quote: true });
 			}
-			else
+			else if (this.nodeConfig.vpn_type === 'v2ray')
 			{
-				// Update the listen port
-				this.updateConfigValue(v2rayConfigPath, 'listen_port', current_vpn_port);
+				this.updateConfigValue(v2rayConfigPath, 'port', current_vpn_port, { quote: false });
+			}
+			else if (this.nodeConfig.vpn_type === 'openvpn')
+			{
+				this.updateConfigValue(openvpnConfigPath, 'port', current_vpn_port, { quote: true });
+				if (this.nodeConfig.vpn_protocol)
+					this.updateConfigValue(openvpnConfigPath, 'protocol', this.nodeConfig.vpn_protocol, { quote: true });
 			}
 			return true;
 		}
 		
 		// Change the VPN type in the node configuration file
-		this.updateConfigValue(configFilePath, 'type', this.nodeConfig.vpn_type);
+		this.updateConfigValueInSection(configFilePath, 'node', 'service_type', this.nodeConfig.vpn_type);
 		// Change the handshake enable in the node configuration file
-		this.updateConfigValueInSection(configFilePath, 'handshake', 'enable', this.nodeConfig.vpn_type === 'wireguard' ? 'true' : 'false');
+		this.updateConfigValueInSection(configFilePath, 'handshake_dns', 'enable', this.nodeConfig.vpn_type === 'wireguard' ? 'true' : 'false', { quote: false });
 		
 		// Update VPN configuration files
+		if (!await this.createVpnConfig())
+			return false;
+		
 		if (this.nodeConfig.vpn_type === 'wireguard')
 		{
-			// If file does not exist, create it
-			if (!this.isConfigFileAvailable(wireguardConfigPath))
-			{
-				// If the other configuration file exists
-				if (this.isConfigFileAvailable(v2rayConfigPath))
-				{
-					// Remove the other configuration file
-					Logger.info(`Deleting V2Ray configuration file: ${v2rayConfigPath}`);
-					await fs.rm(v2rayConfigPath, (error) =>
-					{
-						if (error)
-							Logger.error(`Failed to delete V2Ray configuration file: ${error}`);
-					});
-				}
-				
-				// Generate the configuration file
-				await createVpnConfig();
-			}
-			
-			// Update the listen port
-			this.updateConfigValue(wireguardConfigPath, 'listen_port', current_vpn_port);
+			this.updateConfigValue(wireguardConfigPath, 'port', current_vpn_port, { quote: true });
 		}
 		else if (this.nodeConfig.vpn_type === 'v2ray')
 		{
-			// If file does not exist, create it
-			if (!this.isConfigFileAvailable(v2rayConfigPath))
-			{
-				// If the other configuration file exists
-				if (this.isConfigFileAvailable(wireguardConfigPath))
-				{
-					// Remove the other configuration file
-					Logger.info(`Deleting WireGuard configuration file: ${wireguardConfigPath}`);
-					await fs.rm(wireguardConfigPath, (error) =>
-					{
-						if (error)
-							Logger.error(`Failed to delete WireGuard configuration file: ${error}`);
-					});
-				}
-				
-				// Generate the configuration file
-				await createVpnConfig();
-			}
-			// Update the listen port
-			this.updateConfigValue(v2rayConfigPath, 'listen_port', current_vpn_port);
+			this.updateConfigValue(v2rayConfigPath, 'port', current_vpn_port, { quote: false });
+		}
+		else if (this.nodeConfig.vpn_type === 'openvpn')
+		{
+			this.updateConfigValue(openvpnConfigPath, 'port', current_vpn_port, { quote: true });
+			if (this.nodeConfig.vpn_protocol)
+				this.updateConfigValue(openvpnConfigPath, 'protocol', this.nodeConfig.vpn_protocol, { quote: true });
 		}
 		
 		// Reload node configuration
@@ -499,12 +691,15 @@ class NodeManager
 	 * @param key - Configuration key
 	 * @param value - New value
 	 */
-	private updateConfigValue(filePath: string, key: string, value: string | number): void
+	private updateConfigValue(filePath: string, key: string, value: string | number | boolean, options: { quote?: boolean } = {}): void
 	{
-		const regex = new RegExp(`^(${key}\\s*=\\s*).*`, 'm');
+		const regex = new RegExp(`^\\s*${key}\\s*=.*$`, 'm');
 		const content = fs.readFileSync(filePath, 'utf8');
-		const newValue = `${key} = "${value}"`;
-		const newContent = content.replace(regex, newValue);
+		if (!regex.test(content))
+			return;
+		
+		const formattedValue = this.formatTomlValue(value, options.quote);
+		const newContent = content.replace(regex, `${key} = ${formattedValue}`);
 		fs.writeFileSync(filePath, newContent, 'utf8');
 	}
 	
@@ -515,13 +710,66 @@ class NodeManager
 	 * @param key - Configuration key
 	 * @param value - New value
 	 */
-	private updateConfigValueInSection(filePath: string, section: string, key: string, value: string): void
+	private updateConfigValueInSection(filePath: string, section: string, key: string, value: string | number | boolean, options: { quote?: boolean } = {}): void
 	{
-		const sectionRegex = new RegExp(`(\\[${section}\\][\\s\\S]*?)(^${key}\\s*=\\s*).*`, 'm');
 		const content = fs.readFileSync(filePath, 'utf8');
-		const newValue = `${key} = "${value}"`;
-		const newContent = content.replace(sectionRegex, `$1${newValue}`);
+		const sectionRegex = new RegExp(`(\\[${section}\\][\\s\\S]*?)(?=\\n\\[|$)`, 'm');
+		const sectionMatch = content.match(sectionRegex);
+		if (!sectionMatch)
+			return;
+		
+		const formattedValue = this.formatTomlValue(value, options.quote);
+		const sectionContent = sectionMatch[0];
+		const keyRegex = new RegExp(`^\\s*${key}\\s*=.*$`, 'm');
+		if (!keyRegex.test(sectionContent))
+			return;
+		
+		const updatedSection = sectionContent.replace(keyRegex, `${key} = ${formattedValue}`);
+		const newContent = content.replace(sectionRegex, updatedSection);
 		fs.writeFileSync(filePath, newContent, 'utf8');
+	}
+	
+	private buildInitCommandArguments(): string[]
+	{
+		const args: string[] = [
+			'init',
+			'--keyring.backend', this.nodeConfig.backend || 'test',
+			'--node.interval-session-usage-sync-with-blockchain', '540s',
+			'--node.interval-session-validate', '60s',
+			'--node.interval-status-update', '240s',
+			'--node.service-type', this.nodeConfig.vpn_type || 'wireguard'
+		];
+		
+		const rpcAddresses = this.getRpcAddresses();
+		const fallbackRpc = Array.isArray(config.RPC_ADDRESSES) ? config.RPC_ADDRESSES : DEFAULT_RPC_ADDRESSES;
+		const rpcAddress = (rpcAddresses.length ? rpcAddresses : fallbackRpc)[0];
+		if (rpcAddress)
+			args.push('--rpc.addrs', rpcAddress);
+		
+		const chainId = this.nodeConfig.chain_id || DEFAULT_CHAIN_ID;
+		args.push('--rpc.chain-id', chainId);
+		
+		const walletName = this.nodeConfig.wallet_name || 'operator';
+		args.push('--tx.from-name', walletName);
+		
+		const remoteAddresses = this.buildRemoteAddressesList().filter((addr) => addr !== '127.0.0.1');
+		remoteAddresses.forEach((addr) =>
+		{
+			args.push('--node.remote-addrs', addr);
+		});
+		
+		return args;
+	}
+	
+	private async runNodeInitCommand(): Promise<boolean>
+	{
+		const output = await containerCommand(this.buildInitCommandArguments());
+		if (output === null)
+		{
+			Logger.error('Failed to initialize Sentinel configuration.');
+			return false;
+		}
+		return true;
 	}
 	
 	/**
@@ -534,22 +782,17 @@ class NodeManager
 		if (this.isConfigFileAvailable(path.join(config.CONFIG_DIR, 'config.toml')))
 			return true;
 		
-		// Create configuration file
-		const output: string|null = await containerCommand(['process', 'config', 'init']);
+		const success = await this.runNodeInitCommand();
 		
-		// Return if the configuration file has been created
-		if (output !== null && output === '')
+		if (success)
 		{
 			// Load the node configuration
 			await this.loadNodeConfig();
 			// Return success
 			return true;
 		}
-		else
-		{
-			Logger.error(`Failed to create node configuration file: ${output?.trim()}`);
-			return false;
-		}
+		Logger.error('Failed to create node configuration file.');
+		return false;
 	}
 	
 	/**
@@ -558,42 +801,40 @@ class NodeManager
 	 */
 	public async createVpnConfig(): Promise<boolean>
 	{
-		let output: string|null = '';
-		
 		// Create WireGuard configuration file
 		if (this.nodeConfig.vpn_type === 'wireguard')
 		{
 			// Check if the configuration file already exists
-			if (this.isConfigFileAvailable(path.join(config.CONFIG_DIR, 'wireguard.toml')))
+			if (this.isConfigFileAvailable(path.join(config.CONFIG_DIR, 'wireguard', 'config.toml')))
 				return true;
-			
-			// Create configuration file
-			output = await containerCommand(['process', 'wireguard', 'config', 'init']);
+			const success = await this.runNodeInitCommand();
+			if (success)
+				await this.loadNodeConfig();
+			return success;
 		}
 		// Create V2Ray configuration file
 		else if (this.nodeConfig.vpn_type === 'v2ray')
 		{
 			// Check if the configuration file already exists
-			if (this.isConfigFileAvailable(path.join(config.CONFIG_DIR, 'v2ray.toml')))
+			if (this.isConfigFileAvailable(path.join(config.CONFIG_DIR, 'v2ray', 'config.toml')))
 				return true;
-			
-			// Create configuration file
-			output = await containerCommand(['process', 'v2ray', 'config', 'init']);
+			const success = await this.runNodeInitCommand();
+			if (success)
+				await this.loadNodeConfig();
+			return success;
+		}
+		else if (this.nodeConfig.vpn_type === 'openvpn')
+		{
+			if (this.isConfigFileAvailable(path.join(config.CONFIG_DIR, 'openvpn', 'config.toml')))
+				return true;
+			const success = await this.runNodeInitCommand();
+			if (success)
+				await this.loadNodeConfig();
+			return success;
 		}
 		
-		// Return if the configuration file has been created
-		if (output !== null && output === '')
-		{
-			// Load the node configuration
-			await this.loadNodeConfig();
-			// Return success
-			return true;
-		}
-		else
-		{
-			Logger.error(`Failed to create VPN configuration file: ${output?.trim()}`);
-			return false;
-		}
+		Logger.error('Invalid VPN type provided.');
+		return false;
 	}
 	
 	/**
@@ -615,6 +856,24 @@ class NodeManager
 		}
 		// Return the stdin
 		return stdin;
+	}
+	
+	/**
+	 * Check if the passphrase is required
+	 * @returns boolean
+	 */
+	private getBackend(): string
+	{
+		return this.nodeConfig.backend && this.nodeConfig.backend.trim().length > 0 ? this.nodeConfig.backend : 'test';
+	}
+	
+	/**
+	 * Check if the passphrase is required
+	 * @returns string
+	 */
+	private getWalletName(): string
+	{
+		return this.nodeConfig.wallet_name && this.nodeConfig.wallet_name.trim().length > 0 ? this.nodeConfig.wallet_name : 'operator';
 	}
 	
 	/**
@@ -648,7 +907,7 @@ class NodeManager
 		// Stdin for the command
 		let stdin: string[]|null = this.buildStdinCommand(passphrase);
 		// List all wallet keys
-		const output: string|null = await containerCommand(['process', 'keys', 'list'], stdin);
+		const output: string|null = await containerCommand(['keys', 'list', '--keyring.backend', this.getBackend()], stdin);
 		
 		// If an error occurred
 		if (output === null || !output.includes('Name'))
@@ -680,7 +939,7 @@ class NodeManager
 			return undefined;
 		
 		// List all wallet keys
-		const output: string|null = await containerCommand(['process', 'keys', 'list'], stdin);
+		const output: string|null = await containerCommand(['keys', 'list', '--keyring.backend', this.getBackend()], stdin);
 		
 		// Check if the passphrase is incorrect
 		if (output === null || isPassphraseError(output))
@@ -711,16 +970,18 @@ class NodeManager
 		
 		// Stdin for the command
 		let stdin: string[]|null = this.buildStdinCommand(passphrase);
+		const walletName = this.getWalletName();
+		this.nodeConfig.wallet_name = walletName;
 		
 		// Remove wallet keys
-		const output: string|null = await containerCommand(['process', 'keys', 'delete', this.nodeConfig.wallet_name], stdin);
+		const output: string|null = await containerCommand(['keys', 'delete', '--keyring.backend', this.getBackend(), walletName], stdin);
 		
 		// Check if the passphrase is incorrect
 		if (output === null || isPassphraseError(output))
 			return undefined;
 		
 		// If the wallet has been removed
-		if (output === '')
+		if (output === '' || (typeof output === 'string' && /deleted|removed/i.test(output)))
 		{
 			// Reset the addresses
 			this.nodeConfig.walletPublicAddress = '';
@@ -759,42 +1020,32 @@ class NodeManager
 			return false;
 		}
 		
-		// Stdin for the command
+		const walletName = this.getWalletName();
+		this.nodeConfig.wallet_name = walletName;
+		const backend = this.getBackend();
+		
 		let stdin: string[]|null = this.buildStdinCommand(passphrase);
 		
-		// Remove wallet keys
-		const output: string|null = await containerCommand(['process', 'keys', 'show'], stdin);
+		const output: string|null = await containerCommand(['keys', 'show', '--keyring.backend', backend, walletName], stdin);
 		
-		// Check if the passphrase is incorrect
 		if (output === null || isPassphraseError(output))
 			return undefined;
 		
-		// Parse lines to find the wallet addresses
-		const lines = output?.split('\n') || [];
-		for (let line of lines)
+		// Parse the output to extract the addresses
+		const publicMatch = output.match(/address:\s*(sent[0-9a-z]+)/i) || output.match(/\bsent(?!node)\w+\b/);
+		const nodeMatch = output.match(/\bsentnode\w+\b/);
+		
+		this.nodeConfig.walletPublicAddress = publicMatch ? (publicMatch[1] || publicMatch[0]) : '';
+		this.nodeConfig.walletNodeAddress = nodeMatch ? nodeMatch[0] : '';
+		
+		// If the public address is empty, return an error
+		if (this.nodeConfig.walletPublicAddress.length === 0)
 		{
-			// Find the line containing the wallet name
-			if (line.includes(this.nodeConfig.wallet_name))
-			{
-				// Split the line to extract the addresses
-				const parts = line.trim()
-					.split(/\s+/);
-				if (parts.length === 3)
-				{
-					// Store the addresses
-					this.nodeConfig.walletNodeAddress = parts[1];
-					this.nodeConfig.walletPublicAddress = parts[2];
-					// Return success
-					return true;
-				}
-			}
+			Logger.error('Failed to parse wallet public address.');
+			return false;
 		}
 		
-		// Reset the addresses
-		this.nodeConfig.walletPublicAddress = '';
-		this.nodeConfig.walletNodeAddress = '';
-		// Return an error if the addresses have not been loaded
-		return false;
+		return true;
 	}
 	
 	/**
@@ -816,11 +1067,14 @@ class NodeManager
 		if (exists)
 			return exists === undefined ? undefined : null;
 		
-		// Stdin for the command
-		let stdin: string[]|null = this.buildStdinCommand(passphrase, 2);
+		const walletName = this.getWalletName();
+		const backend = this.getBackend();
+		const passRepeat = this.passphraseRequired() ? 2 : 0;
+		// Stdin for the command (answers for mnemonic + BIP39 passphrase)
+		let stdin: string[]|null = this.buildStdinCommand(passphrase, passRepeat, ['', '']);
 		
 		// Create new wallet
-		const output: string|null = await containerCommand(['process', 'keys', 'add'], stdin);
+		const output: string|null = await containerCommand(['keys', 'add', '--keyring.backend', backend, walletName], stdin);
 		
 		// Check if the passphrase is incorrect
 		if (output === null || isPassphraseError(output))
@@ -830,10 +1084,10 @@ class NodeManager
 		const parsedOutput = this.parseKeysAddOutput(output);
 		
 		// If the node address and public address have been extracted
-		if (parsedOutput && parsedOutput.nodeAddress && parsedOutput.publicAddress && parsedOutput.mnemonicArray.length === 24)
+		if (parsedOutput && parsedOutput.publicAddress && parsedOutput.mnemonicArray.length === 24)
 		{
 			// Store the addresses
-			this.nodeConfig.walletNodeAddress = parsedOutput.nodeAddress as string;
+			this.nodeConfig.walletNodeAddress = (parsedOutput.nodeAddress as string) || '';
 			this.nodeConfig.walletPublicAddress = parsedOutput.publicAddress as string;
 			// Return the mnemonic
 			return parsedOutput.mnemonicArray as string[];
@@ -867,11 +1121,14 @@ class NodeManager
 		if (Array.isArray(mnemonic))
 			mnemonic = mnemonic.join(' ');
 		
+		const walletName = this.getWalletName();
+		const backend = this.getBackend();
+		const passRepeat = this.passphraseRequired() ? 2 : 0;
 		// Stdin for the command
-		let stdin: string[]|null = this.buildStdinCommand(passphrase, 2, [mnemonic]);
+		let stdin: string[]|null = this.buildStdinCommand(passphrase, passRepeat, [mnemonic, '']);
 		
-		// Recoverr new wallet
-		const output: string|null = await containerCommand(['process', 'keys', 'add', '--recover'], stdin);
+		// Recover new wallet
+		const output: string|null = await containerCommand(['keys', 'add', '--keyring.backend', backend, walletName, '--recover'], stdin);
 		
 		// Check if the passphrase is incorrect
 		if (output === null || isPassphraseError(output))
@@ -880,10 +1137,10 @@ class NodeManager
 		// Parse the output
 		const parsedOutput = this.parseKeysAddOutput(output);
 		// If the node address and public address have been extracted
-		if (parsedOutput && parsedOutput.nodeAddress && parsedOutput.publicAddress && parsedOutput.mnemonicArray.length === 24)
+		if (parsedOutput && parsedOutput.publicAddress && parsedOutput.mnemonicArray.length === 24)
 		{
 			// Store the addresses
-			this.nodeConfig.walletNodeAddress = parsedOutput.nodeAddress as string;
+			this.nodeConfig.walletNodeAddress = (parsedOutput.nodeAddress as string) || '';
 			this.nodeConfig.walletPublicAddress = parsedOutput.publicAddress as string;
 			// Return success
 			return true;
@@ -920,8 +1177,8 @@ class NodeManager
 				.split(/\s+/)
 			: [];
 		
-		// If the node address and public address have been extracted
-		if (nodeAddress && publicAddress && mnemonicArray.length === 24)
+		// If the public address and mnemonic have been extracted
+		if (publicAddress && mnemonicArray.length === 24)
 		{
 			// Return data
 			return {
@@ -1097,11 +1354,10 @@ class NodeManager
 		
 		// Detect if the node is installed
 		if (install.image === false
-			|| install.containerExists === false
-			|| install.nodeConfig === false
-			|| install.vpnConfig === false
-			|| install.certificateKey === false
-			|| install.wallet === false)
+				|| install.containerExists === false
+				|| install.nodeConfig === false
+				|| install.certificateKey === false
+				|| install.wallet === false)
 			return 'uninstalled';
 		
 		// Detect if the node is running
@@ -1153,6 +1409,16 @@ class NodeManager
 	}
 	
 	/**
+	 * Set node IPv6 but do not save it to the configuration file
+	 * @param nodeIpv6 string
+	 * @returns void
+	 */
+	public setNodeIpv6(nodeIpv6: string): void
+	{
+		this.nodeConfig.node_ipv6 = nodeIpv6;
+	}
+	
+	/**
 	 * Set node port but do not save it to the configuration file
 	 * @param nodePort number
 	 * @returns void
@@ -1172,6 +1438,12 @@ class NodeManager
 		this.nodeConfig.vpn_type = vpnType;
 		// Update handshake configuration based on the VPN type
 		this.nodeConfig.handshake = vpnType === 'wireguard' ? true : false;
+		if (vpnType === 'wireguard')
+			this.nodeConfig.vpn_protocol = 'udp';
+		else if (vpnType === 'v2ray')
+			this.nodeConfig.vpn_protocol = 'tcp';
+		else if (vpnType === 'openvpn' && !this.nodeConfig.vpn_protocol)
+			this.nodeConfig.vpn_protocol = 'udp';
 	}
 	
 	/**
@@ -1182,6 +1454,16 @@ class NodeManager
 	public setVpnPort(vpnPort: number): void
 	{
 		this.nodeConfig.vpn_port = vpnPort;
+	}
+	
+	/**
+	 * Set VPN protocol but do not save it to the configuration file
+	 * @param vpnProtocol string
+	 * @returns void
+	 */
+	public setVpnProtocol(vpnProtocol: string): void
+	{
+		this.nodeConfig.vpn_protocol = vpnProtocol;
 	}
 	
 	/**
@@ -1292,8 +1574,8 @@ export default nodeManager;
 // Export utility functions
 export const nodeConfig = (): NodeConfigData => nodeManager.getConfig();
 export const isNodeConfigFileAvailable = (): boolean => nodeManager.isConfigFileAvailable(path.join(config.CONFIG_DIR, 'config.toml'));
-export const isWireguardConfigFileAvailable = (): boolean => nodeManager.isConfigFileAvailable(path.join(config.CONFIG_DIR, 'wireguard.toml'));
-export const isV2RayConfigFileAvailable = (): boolean => nodeManager.isConfigFileAvailable(path.join(config.CONFIG_DIR, 'v2ray.toml'));
+export const isWireguardConfigFileAvailable = (): boolean => nodeManager.isConfigFileAvailable(path.join(config.CONFIG_DIR, 'wireguard', 'config.toml'));
+export const isV2RayConfigFileAvailable = (): boolean => nodeManager.isConfigFileAvailable(path.join(config.CONFIG_DIR, 'v2ray', 'config.toml'));
 export const isCertificateKeyAvailable = (): boolean => nodeManager.isConfigFileAvailable(path.join(config.CONFIG_DIR, 'tls.key'));
 export const isWalletAvailable = (): Promise<boolean> => nodeManager.isWalletAvailable();
 export const createNodeConfig = (): Promise<boolean> => nodeManager.createNodeConfig();
