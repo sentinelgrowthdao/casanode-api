@@ -39,6 +39,7 @@ export async function nodeConfigurationGetValues(req: Request, res: Response): P
 		nodePort: nodeConfig.node_port || null,
 		vpnType: nodeConfig.vpn_type || null,
 		vpnPort: nodeConfig.vpn_port || null,
+		vpnProtocol: nodeConfig.vpn_protocol || null,
 		maximumPeers: nodeConfig.max_peers || null,
 		dockerImage: config.DOCKER_IMAGE_NAME || null,
 		casanodeVersion: config.CASANODE_VERSION || null,
@@ -65,6 +66,7 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 			nodePort?: number;
 			vpnType?: string;
 			vpnPort?: number;
+			vpnProtocol?: string;
 			maximumPeers?: number;
 		} = {};
 		
@@ -163,12 +165,12 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 		{
 			// Get the value from the request
 			const vpnType = req.body.vpnType.trim().toLowerCase();
-			// Check if the value is either 'wireguard' or 'v2ray'
-			if (vpnType !== 'wireguard' && vpnType !== 'v2ray')
+			// Check if the value is allowed
+			if (!['wireguard', 'v2ray', 'openvpn'].includes(vpnType))
 			{
 				res.status(400).json({
 					error: true,
-					message: 'VpnType must be either "wireguard" or "v2ray".',
+					message: 'VpnType must be "wireguard", "v2ray" or "openvpn".',
 					success: false,
 				});
 				return ;
@@ -176,6 +178,22 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 			updates.vpnType = vpnType;
 			// Indicate that vpnType was changed
 			vpnTypeChanged = true;
+		}
+		
+		// Validate and queue 'vpnProtocol'
+		if (req.body.vpnProtocol)
+		{
+			const vpnProtocol = req.body.vpnProtocol.trim().toLowerCase();
+			if (vpnProtocol !== 'udp' && vpnProtocol !== 'tcp')
+			{
+				res.status(400).json({
+					error: true,
+					message: 'VpnProtocol must be either "udp" or "tcp".',
+					success: false,
+				});
+				return ;
+			}
+			updates.vpnProtocol = vpnProtocol;
 		}
 		
 		// Validate and queue 'vpnPort'
@@ -220,6 +238,8 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 				nodeManager.setVpnType(updates.vpnType);
 			if (updates.vpnPort !== undefined)
 				nodeManager.setVpnPort(updates.vpnPort);
+			if (updates.vpnProtocol)
+				nodeManager.setVpnProtocol(updates.vpnProtocol);
 		};
 		
 		const applyStandardUpdates = () =>
