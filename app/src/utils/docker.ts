@@ -248,6 +248,12 @@ class DockerManager
 				createOptions.HostConfig.PortBindings[`${configNode.vpn_port}/tcp`] = [{ HostPort: `${configNode.vpn_port}` }];
 				createOptions.ExposedPorts[`${configNode.vpn_port}/tcp`] = {};
 			}
+			else if (configNode.vpn_type === 'openvpn')
+			{
+				const protocol = (configNode.vpn_protocol || 'udp').toLowerCase();
+				createOptions.HostConfig.PortBindings[`${configNode.vpn_port}/${protocol}`] = [{ HostPort: `${configNode.vpn_port}` }];
+				createOptions.ExposedPorts[`${configNode.vpn_port}/${protocol}`] = {};
+			}
 			else
 			{
 				Logger.error(`Invalid node type or missing port. Type: ${configNode.vpn_type}, Port: ${configNode.vpn_port}`);
