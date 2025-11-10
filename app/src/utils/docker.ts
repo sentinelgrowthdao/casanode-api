@@ -651,9 +651,11 @@ class DockerManager
 	 * Execute a container command
 	 * @param argv string[]
 	 * @param stdin string[]|null
+	 * @param attachStdin boolean
+	 * @param tty boolean
 	 * @returns string
 	 */
-	public async containerCommand(argv: string[], stdin: string[] | null = null): Promise<string | null>
+	public async containerCommand(argv: string[], stdin: string[] | null = null, attachStdin: boolean = true, tty: boolean = true): Promise<string | null>
 	{
 		// Check if docker image is available
 		if (!await checkImageAvailability())
@@ -677,10 +679,10 @@ class DockerManager
 				},
 				AttachStdout: true,
 				AttachStderr: true,
-				AttachStdin: false,
+				AttachStdin: attachStdin,
 				OpenStdin: true,
 				StdinOnce: false,
-				Tty: false,
+				Tty: tty,
 			};
 			
 			// Create a stream for the container
@@ -817,4 +819,4 @@ export const containerExists = (): Promise<boolean> => dockerManager.containerEx
 export const containerRemove = (): Promise<boolean> => dockerManager.containerRemove();
 export const containerStatus = (): Promise<string> => dockerManager.containerStatus();
 export const containerLogs = (): Promise<string | null> => dockerManager.containerLogs();
-export const containerCommand = (argv: string[], stdin: string[] | null = null): Promise<string | null> => dockerManager.containerCommand(argv, stdin);
+export const containerCommand = (argv: string[], stdin: string[] | null = null, attachStdin: boolean = true, tty: boolean = true): Promise<string | null> => dockerManager.containerCommand(argv, stdin, attachStdin, tty);
