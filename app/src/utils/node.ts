@@ -772,26 +772,45 @@ class NodeManager
 		{
 			Logger.info('VPN type has not been changed.');
 			
-			// If the configuration file exists, update the VPN port
+			// Check if VPN config files exist, create them if not
+			let vpnConfigExists = false;
 			if (this.nodeConfig.vpn_type === 'wireguard')
-			{
-				this.updateConfigValue(wireguardConfigPath, 'port', current_vpn_port, { quote: true });
-			}
+				vpnConfigExists = this.isConfigFileAvailable(wireguardConfigPath);
 			else if (this.nodeConfig.vpn_type === 'v2ray')
-			{
-				this.updateConfigValue(v2rayConfigPath, 'port', current_vpn_port, { quote: false });
-			}
+				vpnConfigExists = this.isConfigFileAvailable(v2rayConfigPath);
 			else if (this.nodeConfig.vpn_type === 'openvpn')
+				vpnConfigExists = this.isConfigFileAvailable(openvpnConfigPath);
+			if (!vpnConfigExists)
 			{
-				this.updateConfigValue(openvpnConfigPath, 'port', current_vpn_port, { quote: true });
-				if (this.nodeConfig.vpn_protocol)
-					this.updateConfigValue(openvpnConfigPath, 'protocol', this.nodeConfig.vpn_protocol, { quote: true });
+				Logger.info('VPN config files do not exist, creating them.');
+				if (!await this.createVpnConfig())
+					return false;
+			}
+			else
+			{
+				// If the configuration file exists, update the VPN port
+				if (this.nodeConfig.vpn_type === 'wireguard')
+				{
+					this.updateConfigValue(wireguardConfigPath, 'port', current_vpn_port, { quote: true });
+				}
+				else if (this.nodeConfig.vpn_type === 'v2ray')
+				{
+					this.updateConfigValue(v2rayConfigPath, 'port', current_vpn_port, { quote: false });
+				}
+				else if (this.nodeConfig.vpn_type === 'openvpn')
+				{
+					this.updateConfigValue(openvpnConfigPath, 'port', current_vpn_port, { quote: true });
+					if (this.nodeConfig.vpn_protocol)
+						this.updateConfigValue(openvpnConfigPath, 'protocol', this.nodeConfig.vpn_protocol, { quote: true });
+				}
 			}
 			return true;
 		}
 		
-		// Change the VPN type in the node configuration file
-		this.updateConfigValueInSection(configFilePath, 'node', 'service_type', this.nodeConfig.vpn_type);
+		// Regenerate the node configuration with updated VPN type
+		if (!await this.runNodeInitCommand())
+			return false;
+		
 		// Change the handshake enable in the node configuration file
 		this.updateConfigValueInSection(configFilePath, 'handshake_dns', 'enable', this.nodeConfig.vpn_type === 'wireguard' ? 'true' : 'false', { quote: false });
 		
