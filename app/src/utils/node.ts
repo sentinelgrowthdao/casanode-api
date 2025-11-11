@@ -893,20 +893,84 @@ class NodeManager
 	private updateConfigValueInSection(filePath: string, section: string, key: string, value: string | number | boolean, options: { quote?: boolean } = {}): void
 	{
 		const content = fs.readFileSync(filePath, 'utf8');
-		const sectionRegex = new RegExp(`(\\[${section}\\][\\s\\S]*?)(?=\\n\\[|$)`, 'm');
-		const sectionMatch = content.match(sectionRegex);
-		if (!sectionMatch)
-			return;
-		
 		const formattedValue = this.formatTomlValue(value, options.quote);
-		const sectionContent = sectionMatch[0];
-		const keyRegex = new RegExp(`^\\s*${key}\\s*=.*$`, 'm');
-		if (!keyRegex.test(sectionContent))
+		const newlineMatch = content.match(/\r?\n/);
+		const newline = newlineMatch ? newlineMatch[0] : '\n';
+		const lines = content.split(/\r?\n/);
+
+		let sectionStartIndex = -1;
+		let sectionEndIndex = lines.length;
+		for (let i = 0; i < lines.length; i++)
+		{
+			const trimmedLine = lines[i].trim();
+			if (trimmedLine.startsWith('[') && trimmedLine.endsWith(']'))
+			{
+				const sectionName = trimmedLine.slice(1, -1).trim();
+				if (sectionStartIndex === -1 && sectionName === section)
+				{
+					sectionStartIndex = i;
+					continue;
+				}
+				if (sectionStartIndex !== -1)
+				{
+					sectionEndIndex = i;
+					break;
+				}
+			}
+		}
+
+		const keyRegex = new RegExp(`^\\s*${this.escapeRegExp(key)}\\s*=`);
+		const hasTrailingNewline = /\r?\n$/.test(content);
+
+		if (sectionStartIndex === -1)
+		{
+			const trimmedContent = content.replace(/(?:\r?\n)*$/, '');
+			let newContent = `${trimmedContent}${newline}${newline}[${section}]${newline}${key} = ${formattedValue}`;
+			if (hasTrailingNewline && !newContent.endsWith(newline))
+				newContent += newline;
+			fs.writeFileSync(filePath, newContent, 'utf8');
 			return;
-		
-		const updatedSection = sectionContent.replace(keyRegex, `${key} = ${formattedValue}`);
-		const newContent = content.replace(sectionRegex, updatedSection);
+		}
+
+		const beforeSection = lines.slice(0, sectionStartIndex);
+		const sectionLines = lines.slice(sectionStartIndex, sectionEndIndex);
+		const afterSection = lines.slice(sectionEndIndex);
+		const headerLine = sectionLines[0];
+		const bodyLines = sectionLines.slice(1);
+		const cleanedBodyLines: string[] = [];
+		let insertPosition = bodyLines.length;
+		bodyLines.forEach((line) =>
+		{
+			if (keyRegex.test(line))
+			{
+				insertPosition = Math.min(insertPosition, cleanedBodyLines.length);
+				return;
+			}
+			cleanedBodyLines.push(line);
+		});
+		if (insertPosition > cleanedBodyLines.length)
+			insertPosition = cleanedBodyLines.length;
+		const updatedBody = [
+			...cleanedBodyLines.slice(0, insertPosition),
+			`${key} = ${formattedValue}`,
+			...cleanedBodyLines.slice(insertPosition)
+		];
+		const updatedSection = [headerLine, ...updatedBody];
+
+		let newContent = [...beforeSection, ...updatedSection, ...afterSection].join(newline);
+		if (hasTrailingNewline && !newContent.endsWith(newline))
+			newContent += newline;
+
 		fs.writeFileSync(filePath, newContent, 'utf8');
+	}
+	
+	/**
+	 * Escape a string so it can be safely used in a RegExp
+	 * @param value - The value to escape
+	 */
+	private escapeRegExp(value: string): string
+	{
+		return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 	}
 	
 	private buildInitCommandArguments(): string[]
