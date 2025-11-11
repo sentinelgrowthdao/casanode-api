@@ -1692,12 +1692,27 @@ class NodeManager
 	
 	/**
 	 * Check if the passphrase is required
+	 * @param checkAddressExists - Whether to check if an address exists in the keyring file (default: false)
 	 * @returns boolean
 	 */
-	public passphraseRequired(): boolean
+	public passphraseRequired(checkAddressExists: boolean = false): boolean
 	{
 		if (this.nodeConfig.backend === 'test')
 			return false;
+		
+		// For 'file' backend, check if any address exists
+		if (checkAddressExists)
+		{
+			// Check if the keyring folder exists
+			const keyringPath = path.join(config.CONFIG_DIR, 'keyring-file');
+			if (fs.existsSync(keyringPath))
+			{
+				// Check if the keyring folder contains any address files
+				const files = fs.readdirSync(keyringPath);
+				return files.some((file) => file.endsWith('.address'));
+			}
+		}
+		
 		// All other backends require passphrase
 		return true;
 	}
