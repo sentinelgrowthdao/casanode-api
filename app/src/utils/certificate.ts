@@ -1,6 +1,7 @@
 import * as path from 'path';
 import fs from 'fs-extra';
 import forge from 'node-forge';
+import * as crypto from 'crypto';
 import { getLocalIPAddress } from '@utils/network';
 import config from './configuration';
 import { Logger } from './logger';
@@ -202,14 +203,16 @@ class CertificateManager
 			
 			// Read the certificate file
 			const pemCert = fs.readFileSync(certFilePath, 'utf-8');
-			const cert = forge.pki.certificateFromPem(pemCert);
+			
+			// Parse certificate using Node.js crypto module (supports both RSA and ECDSA)
+			const cert = new crypto.X509Certificate(pemCert);
 			
 			// Return certificate information
 			return {
-				creationDate: cert.validity.notBefore.toISOString(),
-				expirationDate: cert.validity.notAfter.toISOString(),
-				issuer: cert.issuer.attributes.map((attr: forge.pki.CertificateField) => `${attr.name}=${attr.value}`).join(', '),
-				subject: cert.subject.attributes.map((attr: forge.pki.CertificateField) => `${attr.name}=${attr.value}`).join(', '),
+				creationDate: new Date(cert.validFrom).toISOString(),
+				expirationDate: new Date(cert.validTo).toISOString(),
+				issuer: cert.issuer,
+				subject: cert.subject,
 			} as CertificateInfo;
 		}
 		catch (error)
