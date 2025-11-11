@@ -53,11 +53,15 @@ class WebServer
 	{
 		// Enable CORS for all routes
 		this.app.use(cors({
-			origin: '*',
-			methods: 'GET,HEAD,PUT,POST,DELETE',
-			allowedHeaders: 'Content-Type, Authorization',
-			credentials: false,
+			origin: true, // Allow all origins
+			methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+			allowedHeaders: 'Content-Type, Authorization, X-Requested-With, Accept, Origin',
+			credentials: true,
+			optionsSuccessStatus: 200, // Some legacy browsers choke on 204
 		}));
+		
+		// Handle preflight requests
+		this.app.options('*', cors());
 		
 		// Add the JSON parsing middleware
 		this.app.use(express.json());
