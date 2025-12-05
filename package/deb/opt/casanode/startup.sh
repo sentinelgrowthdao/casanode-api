@@ -95,6 +95,31 @@ ensure_sentinel_image()
 > "$LOGFILE"
 echo "=== Casanode startup begin ===" | tee -a "$LOGFILE"
 
+sync_clock()
+{
+	echo "Synchronizing system clock…" | tee -a "$LOGFILE"
+	
+	if command -v timedatectl >/dev/null 2>&1; then
+		# Enable NTP if disabled, then restart the built-in client
+		timedatectl set-ntp true 2>>"$LOGFILE"
+		systemctl restart systemd-timesyncd.service 2>>"$LOGFILE"
+		sleep 2
+		timedatectl show -p NTPSynchronized 2>>"$LOGFILE" | tee -a "$LOGFILE"
+		return 0
+	fi
+	
+	# Fallback for systems without systemd-timesyncd
+	if command -v ntpdate >/dev/null 2>&1; then
+		ntpdate -u pool.ntp.org 2>&1 | tee -a "$LOGFILE"
+		return 0
+	fi
+	
+	echo "✗ No NTP client found. Install 'systemd-timesyncd' (recommended) or 'ntpdate'." | tee -a "$LOGFILE"
+	return 1
+}
+
+sync_clock
+
 
 # Start the systemd-user instance for casanode
 echo "Launching user@$UID_USER.service…" | tee -a "$LOGFILE"

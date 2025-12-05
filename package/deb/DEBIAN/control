@@ -9,7 +9,8 @@ Version: 0.1.0
 Architecture: all
 Depends: nodejs,
      docker-ce | docker.io,
-     nginx
+     nginx,
+     ntpdate
 Description: Casanode API - dVPN node management via REST API
      Casanode API is a lightweight service for managing decentralized VPN (dVPN) nodes.
      It exposes a REST API (JWT-authenticated) for monitoring, configuration, and lifecycle control with Docker support.
