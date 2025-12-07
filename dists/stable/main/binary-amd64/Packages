@@ -35,20 +35,20 @@ Standards-Version: 4.1.4
 
 Package: casanode-api
 Source: casanode
-Version: 2.0.0-alpha3
+Version: 2.0.0-alpha4
 Architecture: all
 Maintainer: FoxinouFr <foxinou@foxinodes.net>
 Depends: nodejs,
      docker-ce | docker.io,
      nginx
-Filename: pool/main/casanode-api_2.0.0-alpha3_all.deb
-Size: 285548
-MD5sum: dd30e28a05210ef52f97030743a0f9de
-SHA1: f545e78257130afe0a561d09226c4a9179bc7215
-SHA256: caab84e9cccfe2034606b433008d4623d155c17e5472b5bd92ee2618588aeb26
+Filename: pool/main/casanode-api_2.0.0-alpha4_all.deb
+Size: 285524
+MD5sum: 27597c2284ee85fac5b0df2f2b8f1eb3
+SHA1: d77cafd8d1b051ddc871e6933339ad209ebaad6c
+SHA256: 5dba5cdf3c0d086cec33f41ea598ca94ac6444aaf28e504429e2218062c55096
 Section: net
 Priority: optional
-Homepage: https://github.com/sentinelgrowthdao/casanode-ble
+Homepage: https://github.com/sentinelgrowthdao/casanode-api
 Description: Casanode API - dVPN node management via REST API
      Casanode API is a lightweight service for managing decentralized VPN (dVPN) nodes.
      It exposes a REST API (JWT-authenticated) for monitoring, configuration, and lifecycle control with Docker support.
