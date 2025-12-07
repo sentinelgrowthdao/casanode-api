@@ -40,13 +40,12 @@ Architecture: all
 Maintainer: FoxinouFr <foxinou@foxinodes.net>
 Depends: nodejs,
      docker-ce | docker.io,
-     nginx,
-     ntpdate
+     nginx
 Filename: pool/main/casanode-api_2.0.0-alpha3_all.deb
-Size: 285544
-MD5sum: da65c9dad1b72f74a84cd9738f2f75c7
-SHA1: b6e05a035578d8a7bbe011ee04ccbad1ef4facfb
-SHA256: 457d2081aaa6f562e9f9c0fe411f7030fc561c77b08407146501e29847571f16
+Size: 285548
+MD5sum: dd30e28a05210ef52f97030743a0f9de
+SHA1: f545e78257130afe0a561d09226c4a9179bc7215
+SHA256: caab84e9cccfe2034606b433008d4623d155c17e5472b5bd92ee2618588aeb26
 Section: net
 Priority: optional
 Homepage: https://github.com/sentinelgrowthdao/casanode-ble
