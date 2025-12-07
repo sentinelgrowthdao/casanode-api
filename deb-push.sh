@@ -4,7 +4,7 @@ set -e
 # Configuration
 PACKAGE_DIR="package"
 DEB_DIR="$PACKAGE_DIR/dist"
-REPO_URL="https://github.com/sentinelgrowthdao/casanode-ble.git"
+REPO_URL="https://github.com/sentinelgrowthdao/casanode-api.git"
 GH_PAGES_BRANCH="gh-pages"
 TEMP_DIR="gh-pages-temp"
 

@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: FoxinouFr <foxinou@foxinodes.net>
 Standards-Version: 4.1.4
-Homepage: https://github.com/sentinelgrowthdao/casanode-ble
+Homepage: https://github.com/sentinelgrowthdao/casanode-api
 Package: casanode-api
 Version: 0.1.0
 Architecture: all
