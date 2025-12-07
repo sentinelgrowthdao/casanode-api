@@ -108,14 +108,8 @@ sync_clock()
 		return 0
 	fi
 	
-	# Fallback for systems without systemd-timesyncd
-	if command -v ntpdate >/dev/null 2>&1; then
-		ntpdate -u pool.ntp.org 2>&1 | tee -a "$LOGFILE"
-		return 0
-	fi
-	
-	echo "✗ No NTP client found. Install 'systemd-timesyncd' (recommended) or 'ntpdate'." | tee -a "$LOGFILE"
-	return 1
+	echo "timedatectl not available, skipping clock synchronization." | tee -a "$LOGFILE"
+	return 0
 }
 
 sync_clock
