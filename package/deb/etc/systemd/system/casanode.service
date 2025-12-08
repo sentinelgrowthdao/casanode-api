@@ -1,14 +1,13 @@
 [Unit]
 Description=Casanode dVPN Service
 Requires=casanode-startup.service
-After=casanode-startup.service
+Wants=network-online.target
+After=network-online.target casanode-startup.service
 
 [Service]
 User=casanode
 Group=casanode
 WorkingDirectory=/opt/casanode
-ExecStartPre=/bin/sh -c 'until ping -c1 -W1 8.8.8.8 >/dev/null 2>&1; do sleep 1; done'
-ExecStartPre=/bin/sh -c 'until getent hosts wapi.foxinodes.net >/dev/null 2>&1; do sleep 1; done'
 ExecStart=npm --prefix /opt/casanode/app/ run start
 Restart=always
 RestartSec=2s
