@@ -239,7 +239,7 @@ class ConfigurationLoader
 		{
 			try
 			{
-				const response = await axios.get('https://api.ipify.org?format=json', { timeout: 10000 });
+				const response = await axios.get('https://api.ipify.org?format=json', { timeout: 5000 });
 				if (response.status === 200 && response.data.ip)
 					nodeIP = response.data.ip;
 			}
@@ -254,7 +254,7 @@ class ConfigurationLoader
 		{
 			try
 			{
-				const response = await axios.get('https://api64.ipify.org?format=json', { timeout: 10000 });
+				const response = await axios.get('https://api64.ipify.org?format=json', { timeout: 5000 });
 				if (response.status === 200 && response.data.ip)
 					nodeIPv6 = response.data.ip;
 			}
@@ -269,7 +269,7 @@ class ConfigurationLoader
 		try
 		{
 			// Attempt to get the IP and country from the primary API
-			const response = await axios.get(this.config.FOXINODES_API_CHECK_IP, { timeout: 60000 });
+			const response = await axios.get(this.config.FOXINODES_API_CHECK_IP, { timeout: 15000 });
 			if (response.status === 200)
 			{
 				const data = response.data;
@@ -288,7 +288,7 @@ class ConfigurationLoader
 			try
 			{
 				// Fallback to checkip.dyndns.org
-				const response = await axios.get('http://checkip.dyndns.org/', { timeout: 60000 });
+				const response = await axios.get('http://checkip.dyndns.org/', { timeout: 5000 });
 				if (response.status === 200)
 				{
 					const value = response.data;
