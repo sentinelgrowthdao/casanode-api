@@ -633,8 +633,9 @@ class NodeManager
 			addresses.push(this.nodeConfig.node_ip);
 		if (this.nodeConfig.node_ipv6 && this.nodeConfig.node_ipv6 !== '::1')
 			addresses.push(this.nodeConfig.node_ipv6);
+		// Ensure at least one address is presen
 		if (!addresses.length)
-			addresses.push('127.0.0.1');
+			addresses.push('0.0.0.0');
 		return [...new Set(addresses)];
 	}
 	
@@ -645,8 +646,10 @@ class NodeManager
 	 */
 	private formatRemoteAddresses(addresses: string[]): string
 	{
+		// Ensure at least one address is present
 		if (!addresses.length)
-			return '["127.0.0.1"]';
+			return '["0.0.0.0"]';
+		// Format as TOML array
 		return `[${addresses.map((addr) => `"${addr}"`).join(', ')}]`;
 	}
 	
@@ -996,7 +999,7 @@ class NodeManager
 		const walletName = this.nodeConfig.wallet_name || 'operator';
 		args.push('--tx.from-name', walletName);
 		
-		const remoteAddresses = this.buildRemoteAddressesList().filter((addr) => addr !== '127.0.0.1');
+		const remoteAddresses = this.buildRemoteAddressesList();
 		remoteAddresses.forEach((addr) =>
 		{
 			args.push('--node.remote-addrs', addr);
