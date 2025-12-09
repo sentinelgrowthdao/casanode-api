@@ -35,17 +35,17 @@ Standards-Version: 4.1.4
 
 Package: casanode-api
 Source: casanode
-Version: 2.0.0-alpha5
+Version: 2.0.0-alpha6
 Architecture: all
 Maintainer: FoxinouFr <foxinou@foxinodes.net>
 Depends: nodejs,
      docker-ce | docker.io,
      nginx
-Filename: pool/main/casanode-api_2.0.0-alpha5_all.deb
-Size: 285468
-MD5sum: 6b11d2fcbc56b92ae23e4ec0a47f23c5
-SHA1: 32c86cfe21c120b94c1dedfc1941e99f84720269
-SHA256: baee361056e410d9fc34a65149b2900809c323115faed3b0967ef5d5dfae8976
+Filename: pool/main/casanode-api_2.0.0-alpha6_all.deb
+Size: 285508
+MD5sum: 61474df30dd7b3693352511d6bc4ba54
+SHA1: 357e95edd9fd005362e738b18e5f3329ab442ced
+SHA256: c42e9cce71df5201e45f07fdcc06efb1b5f897be850fcfceba1dd440d29dcdbc
 Section: net
 Priority: optional
 Homepage: https://github.com/sentinelgrowthdao/casanode-api
