@@ -6,7 +6,6 @@ LOGFILE_ROOTLESS="/var/log/casanode/rootless.log"
 USER="casanode"
 UID_USER=$(id -u "$USER")
 FLAGFILE="/opt/$USER/.docker_rootless_installed"
-SENTINEL_TAR_PATH="/opt/casanode/docker/sentinel-dvpnx-latest.tar"
 SENTINEL_REMOTE_TAG="ghcr.io/sentinel-official/sentinel-dvpnx:latest"
 SENTINEL_LOCAL_TAG="sentinel-dvpnx:latest"
 
@@ -52,6 +51,21 @@ image_exists()
 ensure_sentinel_image()
 {
 	echo "Ensuring Sentinel image is present (rootless)…" | tee -a "$LOGFILE"
+
+	# Detect architecture and set tar path
+	ARCH=$(uname -m)
+	case "$ARCH" in
+		x86_64)
+			SENTINEL_TAR_PATH="/opt/casanode/docker/sentinel-dvpnx-amd64.tar"
+			;;
+		aarch64)
+			SENTINEL_TAR_PATH="/opt/casanode/docker/sentinel-dvpnx-arm64.tar"
+			;;
+		*)
+			echo "  → Unsupported architecture: $ARCH, skipping image load." | tee -a "$LOGFILE"
+			return 0
+			;;
+	esac
 
 	# Preliminary checks
 	if [ ! -f "$SENTINEL_TAR_PATH" ]; then
