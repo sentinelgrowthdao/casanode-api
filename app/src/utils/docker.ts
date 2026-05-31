@@ -4,6 +4,7 @@ import { nodeConfig, type NodeConfigData } from '@utils/node';
 import config from './configuration';
 import { getDockerDefaultSocketPath } from './configuration';
 import { Logger } from './logger';
+import { syncConfiguredNatMappings } from './nat';
 
 class DockerManager
 {
@@ -205,6 +206,7 @@ class DockerManager
 					else
 					{
 						await this.startContainerWithoutPassphrase(config.DOCKER_CONTAINER_NAME);
+						await this.syncUpnpMappings(configNode);
 						Logger.info('dVPN node container has been started successfully.');
 						return true;
 					}
@@ -277,6 +279,9 @@ class DockerManager
 				});
 				result = await this.startContainerWithoutPassphrase(config.DOCKER_CONTAINER_NAME);
 			}
+
+			if (result)
+				await this.syncUpnpMappings(configNode);
 			
 			return result;
 		}
@@ -289,6 +294,18 @@ class DockerManager
 			
 			return false;
 		}
+	}
+
+	/**
+	 * Synchronize desired UPnP mappings without failing container lifecycle actions
+	 * @param configNode NodeConfigData
+	 * @returns Promise<void>
+	 */
+	private async syncUpnpMappings(configNode: NodeConfigData): Promise<void>
+	{
+		const synced = await syncConfiguredNatMappings(configNode);
+		if (!synced)
+			Logger.error('Failed to synchronize UPnP mappings after container start.');
 	}
 	
 	/**

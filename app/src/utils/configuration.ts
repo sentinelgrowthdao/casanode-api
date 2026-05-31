@@ -24,6 +24,12 @@ export interface AppConfigData
 	FOXINODES_API_CHECK_IP: string;
 	FOXINODES_API_DVPN_CONFIG: string;
 	FOXINODES_API_CHECK_PORT: string;
+	UPNP_ENABLED: string;
+	UPNP_CONTROL_SOCKET: string;
+	UPNP_LEASE_SECONDS: string;
+	UPNP_INTERNAL_CLIENT: string;
+	UPNP_NODE_DESCRIPTION: string;
+	UPNP_VPN_DESCRIPTION: string;
 	SENTRY_DSN?: string;
 }
 
@@ -67,6 +73,12 @@ class ConfigurationLoader
 			FOXINODES_API_CHECK_IP: 'https://wapi.foxinodes.net/api/v1/sentinel/check-ip',
 			FOXINODES_API_DVPN_CONFIG: 'https://wapi.foxinodes.net/api/v1/sentinel/dvpn-node/configuration',
 			FOXINODES_API_CHECK_PORT: 'https://wapi.foxinodes.net/api/v1/sentinel/dvpn-node/check-port/',
+			UPNP_ENABLED: 'true',
+			UPNP_CONTROL_SOCKET: '/run/casanode-natd/control.sock',
+			UPNP_LEASE_SECONDS: '3600',
+			UPNP_INTERNAL_CLIENT: '',
+			UPNP_NODE_DESCRIPTION: 'Casanode node',
+			UPNP_VPN_DESCRIPTION: 'Casanode VPN',
 			SENTRY_DSN: '',
 		};
 	
@@ -106,7 +118,7 @@ class ConfigurationLoader
 	{
 		// Preserve the current API_AUTH so it is never regenerated during a factory reset
 		const currentApiAuth = this.config?.API_AUTH;
-		this.config = { ...this.defaultConfig };
+		this.applyConfig({ ...this.defaultConfig });
 		if (currentApiAuth)
 		{
 			this.config.API_AUTH = currentApiAuth;
@@ -135,6 +147,28 @@ class ConfigurationLoader
 		}, {} as AppConfigData);
 		// Save filtered configuration
 		return filteredConfig;
+	}
+
+	/**
+	 * Apply a new config object while preserving the exported object reference
+	 * @param nextConfig AppConfigData
+	 * @returns void
+	 */
+	private applyConfig(nextConfig: AppConfigData): void
+	{
+		if (!this.config)
+		{
+			this.config = nextConfig;
+			return;
+		}
+
+		for (const key of Object.keys(this.config))
+		{
+			if (!(key in nextConfig))
+				delete this.config[key];
+		}
+
+		Object.assign(this.config, nextConfig);
 	}
 	
 	/**
@@ -218,6 +252,21 @@ class ConfigurationLoader
 			console.error(`An error occurred while saving configuration file: ${error}`);
 			return false;
 		}
+	}
+
+	/**
+	 * Update a configuration value and optionally persist it
+	 * @param key keyof AppConfigData
+	 * @param value AppConfigData value
+	 * @param persist boolean
+	 * @returns boolean
+	 */
+	public setConfigValue(key: keyof AppConfigData, value: AppConfigData[keyof AppConfigData], persist: boolean = true): boolean
+	{
+		this.config[key] = value;
+		if (!persist)
+			return true;
+		return this.saveConfig();
 	}
 	
 	
@@ -341,8 +390,7 @@ class ConfigurationLoader
 					const residentialHourlyPrices = data.residential.hourly_prices || this.config.RESIDENTIAL_HOURLY_PRICES;
 					
 					// Update the configuration
-					this.config = {
-						...this.config,
+					Object.assign(this.config, {
 						CHAIN_ID: chainId,
 						RPC_ADDRESSES: rpcAddresses,
 						GAS: gas,
@@ -352,7 +400,7 @@ class ConfigurationLoader
 						DATACENTER_HOURLY_PRICES: datacenterHourlyPrices,
 						RESIDENTIAL_GIGABYTE_PRICES: residentialGigabytePrices,
 						RESIDENTIAL_HOURLY_PRICES: residentialHourlyPrices
-					};
+					});
 					
 					// Log
 					Logger.info('Network configuration has been refreshed.');
@@ -418,3 +466,8 @@ export const getDockerDefaultSocketPath = (): string => configurationLoader.getD
 export const getRemoteAddress = async (): Promise<RemoteAddressData> => configurationLoader.getRemoteAddress();
 export const refreshNetworkConfiguration = async (): Promise<boolean> => configurationLoader.refreshNetworkConfiguration();
 export const resetConfiguration = (): void => configurationLoader.resetConfiguration();
+export const setConfigurationValue = (
+	key: keyof AppConfigData,
+	value: AppConfigData[keyof AppConfigData],
+	persist: boolean = true,
+): boolean => configurationLoader.setConfigValue(key, value, persist);

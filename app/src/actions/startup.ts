@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import { Logger } from '@utils/logger';
 import nodeManager from '@utils/node';
 import { walletLoadAddresses } from '@utils/node';
+import { syncConfiguredNatMappings } from '@utils/nat';
 
 // Promisify the exec function
 const execPromise = promisify(exec);
@@ -15,6 +16,9 @@ const execPromise = promisify(exec);
 export const loadingNodeInformations = async (): Promise<boolean> =>
 {
 	Logger.info('Loading node informations.');
+
+	// Reload local configuration before publishing desired UPnP mappings
+	nodeManager.loadNodeConfig();
 	
 	// Load the node location
 	await nodeManager.refreshNodeLocation();
@@ -22,6 +26,7 @@ export const loadingNodeInformations = async (): Promise<boolean> =>
 	// If the passphrase is unavailable
 	if (!nodeManager.passphraseAvailable())
 	{
+		await syncConfiguredNatMappings(nodeManager.getConfig());
 		Logger.info('Passphrase required to load wallet informations.');
 		return true;
 	}
@@ -31,6 +36,9 @@ export const loadingNodeInformations = async (): Promise<boolean> =>
 	
 	// Load wallet informations
 	await walletLoadAddresses(passphrase);
+
+	// Synchronize desired UPnP mappings from the current node configuration
+	await syncConfiguredNatMappings(nodeManager.getConfig());
 	
 	return true;
 };

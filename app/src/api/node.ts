@@ -18,6 +18,7 @@ import {
 	isValidIP,
 	isValidDns,
 } from '@utils/validators';
+import { syncConfiguredNatMappings } from '@utils/nat';
 
 /**
  * Get the node configuration
@@ -58,6 +59,7 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 	{
 		// Indicate if vpnType was changed
 		let vpnTypeChanged = false;
+		let portSettingsChanged = false;
 		const updates: {
 			moniker?: string;
 			backend?: string;
@@ -158,6 +160,7 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 				return ;
 			}
 			updates.nodePort = nodePort;
+			portSettingsChanged = true;
 		}
 		
 		// Validate and queue 'vpnType'
@@ -178,6 +181,7 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 			updates.vpnType = vpnType;
 			// Indicate that vpnType was changed
 			vpnTypeChanged = true;
+			portSettingsChanged = true;
 		}
 		
 		// Validate and queue 'vpnProtocol'
@@ -194,6 +198,7 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 				return ;
 			}
 			updates.vpnProtocol = vpnProtocol;
+			portSettingsChanged = true;
 		}
 		
 		// Validate and queue 'vpnPort'
@@ -212,6 +217,7 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 				return ;
 			}
 			updates.vpnPort = vpnPort;
+			portSettingsChanged = true;
 		}
 		
 		// Validate and queue 'maximumPeers'
@@ -276,6 +282,8 @@ export async function nodeConfigurationSetValues(req: Request, res: Response): P
 		// Refresh the configuration files with the new values
 		Logger.info('Starting node configuration update process');
 		nodeManager.refreshConfigFiles();
+		if (portSettingsChanged)
+			await syncConfiguredNatMappings(nodeManager.getConfig());
 		
 		// Return the node configuration
 		Logger.info('Node configuration updated successfully');
@@ -308,6 +316,7 @@ export async function nodeConfigurationApply(req: Request, res: Response): Promi
 		// Refresh the configuration files with the new values
 		Logger.info('Starting node configuration update process');
 		nodeManager.refreshConfigFiles();
+		await syncConfiguredNatMappings(nodeManager.getConfig());
 		
 		// Return the node configuration
 		Logger.info('Node configuration updated successfully');
