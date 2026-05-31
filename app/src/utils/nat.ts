@@ -42,7 +42,6 @@ interface NatResponse
 class NatManager
 {
 	private static instance: NatManager;
-	private runtimeDisabled = false;
 
 	private constructor()
 	{
@@ -152,30 +151,13 @@ class NatManager
 
 	private async ensureServiceAvailable(): Promise<boolean>
 	{
-		if (this.runtimeDisabled)
-			return false;
-
 		const socketPath = this.getSocketPath();
 		if (!fs.existsSync(socketPath))
 		{
-			this.disableRuntime(`NAT socket not found at ${socketPath}. Feature disabled until process restart.`);
+			Logger.info(`NAT socket not found at ${socketPath}. Will retry on the next request.`);
 			return false;
 		}
-
-		const alive = await this.ping();
-		if (!alive)
-		{
-			this.disableRuntime(`NAT daemon did not respond on ${socketPath}. Feature disabled until process restart.`);
-			return false;
-		}
-
 		return true;
-	}
-
-	private disableRuntime(message: string): void
-	{
-		this.runtimeDisabled = true;
-		Logger.info(message);
 	}
 
 	private buildMappings(portConfig: NatPortConfig): NatMapping[]
@@ -265,6 +247,21 @@ class NatManager
 	}
 
 	private async sendCommand(request: NatRequest): Promise<NatResponse | null>
+	{
+		return this.sendCommandWithRetry(request);
+	}
+
+	private async sendCommandWithRetry(request: NatRequest): Promise<NatResponse | null>
+	{
+		const firstAttempt = await this.sendCommandOnce(request);
+		if (firstAttempt !== null)
+			return firstAttempt;
+
+		await new Promise((resolve) => setTimeout(resolve, 250));
+		return this.sendCommandOnce(request);
+	}
+
+	private async sendCommandOnce(request: NatRequest): Promise<NatResponse | null>
 	{
 		const socketPath = this.getSocketPath();
 
