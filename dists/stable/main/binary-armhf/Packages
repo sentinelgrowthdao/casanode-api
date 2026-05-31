@@ -42,10 +42,10 @@ Depends: nodejs,
      docker-ce | docker.io,
      nginx
 Filename: pool/main/casanode-api_2.0.0-alpha7_all.deb
-Size: 288172
-MD5sum: cf1900a59e6710ac4d8a36051adcda84
-SHA1: a7a92388b9aafff516ea95c9822e84a28ea25d57
-SHA256: 1c395d9009482a5fdbe4d388d1a6f34c4214f4836466fc318dde7655dc440b65
+Size: 277892
+MD5sum: 3b1f6146ef7fe290b47efd9485994060
+SHA1: cd6182a897addb73ecdd5b8a8f4449fc6dfc0518
+SHA256: 756c93ab66c382b2794f9ffdac834fa2186a6adff3a778b0506952d4695b6ed2
 Section: net
 Priority: optional
 Homepage: https://github.com/sentinelgrowthdao/casanode-api
