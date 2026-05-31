@@ -1,14 +1,14 @@
 import typescriptParser from "@typescript-eslint/parser";
 import typescriptPlugin from "@typescript-eslint/eslint-plugin";
-import importPlugin from "eslint-plugin-import";
 import promisePlugin from "eslint-plugin-promise";
 
 export default [
 	{
+		ignores: ["dist/**", "node_modules/**"],
+	},
+	{
 		files: ["**/*.ts"],
 		ignores: [
-			"node_modules",
-			"dist",
 			"src/test.ts",
 		],
 		languageOptions: {
@@ -21,7 +21,6 @@ export default [
 		},
 		plugins: {
 			"@typescript-eslint": typescriptPlugin,
-			import: importPlugin,
 			promise: promisePlugin,
 		},
 		rules: {
@@ -59,13 +58,6 @@ export default [
 				{
 					before: true,
 					after: true,
-				},
-			],
-			"import/order": [
-				"error",
-				{
-					groups: [["builtin", "external"], "internal", ["parent", "sibling", "index"]],
-					"newlines-between": "ignore",
 				},
 			],
 			"promise/always-return": "error",
