@@ -677,8 +677,12 @@ class DockerManager
 		// Check if docker image is available
 		if (!await checkImageAvailability())
 		{
-			Logger.error(`Container command '${argv.join(' ')}' failed: Image does not exist.`);
-			return null;
+			Logger.info(`Docker image ${config.DOCKER_IMAGE_NAME} is missing, attempting automatic pull.`);
+			if (!await this.imagePull())
+			{
+				Logger.error(`Container command '${argv.join(' ')}' failed: Image does not exist.`);
+				return null;
+			}
 		}
 		
 		const containerName = config.DOCKER_CONTAINER_NAME;

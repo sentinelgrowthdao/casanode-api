@@ -13,17 +13,39 @@ export const daemonCommand = async () =>
 	try
 	{
 		// Load system information
-		await loadingSystemInformations();
-		
-		// Load node information
-		await loadingNodeInformations();
-		
-		// Start the web server
+		try
+		{
+			await loadingSystemInformations();
+		}
+		catch (error: any)
+		{
+			Logger.error('System bootstrap failed, continuing with degraded startup.', error);
+		}
+		// Load node information in the background so startup stays resilient
+		void startNodeBootstrap();
+
+		// Start the web server even if node bootstrap fails
 		await startWebServer();
 	}
 	catch (error: any)
 	{
 		Logger.error('An unexpected error occurred in daemon process.', error);
+	}
+};
+
+/**
+ * Bootstrap node information without blocking web server startup
+ * @returns Promise<void>
+ */
+const startNodeBootstrap = async (): Promise<void> =>
+{
+	try
+	{
+		await loadingNodeInformations();
+	}
+	catch (error: any)
+	{
+		Logger.error('Node bootstrap failed, continuing with degraded startup.', error);
 	}
 };
 
