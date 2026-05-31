@@ -60,6 +60,10 @@ The parameters used to configure the web server are in the `/etc/casanode.conf` 
 - `WEB_LISTEN`: Interface and listening port for the QR Code display page (in HTTP)
 - `API_LISTEN`: Interface and listening port for APIs (in HTTPS)
 - `API_AUTH`: Authentication token for using APIs
+- `UPNP_ENABLED`: Enables synchronization with the local NAT daemon
+- `UPNP_CONTROL_SOCKET`: Unix socket used to talk to `casanode-natd`
+- `UPNP_LEASE_SECONDS`: Lease duration requested for node and VPN mappings
+- `UPNP_INTERNAL_CLIENT`: Optional local IPv4 destination for forwarded ports
 
 ### Testing REST APIs
 
