@@ -60,8 +60,8 @@ class WebServer
 			optionsSuccessStatus: 200, // Some legacy browsers choke on 204
 		}));
 		
-		// Handle preflight requests
-		this.app.options('*', cors());
+		// Handle preflight requests for every route
+		this.app.options(/.*/, cors());
 		
 		// Add the JSON parsing middleware
 		this.app.use(express.json());
@@ -76,11 +76,17 @@ class WebServer
 	 */
 	public start()
 	{
-		http.createServer(this.app)
-			.listen(this.apiPort, this.apiHostname, () =>
-			{
-				Logger.info(`API server running at http://${this.apiHostname}:${this.apiPort}`);
-			});
+		const server = http.createServer(this.app);
+		
+		server.on('error', (error: NodeJS.ErrnoException) =>
+		{
+			Logger.error(`API server failed to bind on ${this.apiHostname}:${this.apiPort}`, error);
+		});
+		
+		server.listen(this.apiPort, this.apiHostname, () =>
+		{
+			Logger.info(`API server running at http://${this.apiHostname}:${this.apiPort}`);
+		});
 	}
 }
 
