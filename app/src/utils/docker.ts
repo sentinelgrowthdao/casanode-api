@@ -109,9 +109,9 @@ class DockerManager
 			
 			// Tagging the image
 			const image = this.docker.getImage(imageName);
-			await image.tag({ repo: containerName });
+			await image.tag({ repo: containerName, tag: 'latest' });
 			
-			Logger.info(`Docker image ${imageName} tagged as ${containerName} successfully`);
+			Logger.info(`Docker image ${imageName} tagged as ${containerName}:latest successfully`);
 			
 			return true;
 		}
@@ -274,7 +274,7 @@ class DockerManager
 			{
 				await this.docker.createContainer({
 					...createOptions,
-					Image: config.DOCKER_CONTAINER_NAME,
+					Image: config.DOCKER_IMAGE_NAME,
 					Cmd: ['start']
 				});
 				result = await this.startContainerWithoutPassphrase(config.DOCKER_CONTAINER_NAME);
@@ -345,7 +345,7 @@ class DockerManager
 			// Options for the container
 			const options = {
 				name: containerName,
-				Image: config.DOCKER_CONTAINER_NAME,
+				Image: config.DOCKER_IMAGE_NAME,
 				Cmd: ['start'],
 				abortSignal: undefined,
 				AttachStdin: true,
@@ -685,7 +685,6 @@ class DockerManager
 			}
 		}
 		
-		const containerName = config.DOCKER_CONTAINER_NAME;
 		const configDir = config.CONFIG_DIR;
 		
 		try
@@ -710,7 +709,7 @@ class DockerManager
 			const outputStream = new PassThrough();
 			
 			// Execute the command
-			await this.docker.run(containerName, argv, outputStream, createOptions, async (err) =>
+			await this.docker.run(config.DOCKER_IMAGE_NAME, argv, outputStream, createOptions, async (err) =>
 			{
 				if (err instanceof Error)
 					Logger.error(`Error executing container command '${argv.join(' ')}': ${err.message}`);
